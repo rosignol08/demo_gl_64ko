@@ -21,7 +21,8 @@ extern "C" {
 
   extern void fondu(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state);
   extern void fondui(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state);
-  
+  extern void pixels(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state);
+
   extern void rouge(int state);
   extern void vert(int state);
   extern void bleu(int state);

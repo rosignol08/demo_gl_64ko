@@ -30,7 +30,7 @@ static GL4DHanime _animations[] = {
   { 2000, rouge, NULL, NULL },
   { 4000, rouge, vhs, fondu },
   { 4000, vhs, NULL, NULL },
-  { 9000, vhs, basic_audio, fondui },
+  { 9000, wf_cube, basic_audio, pixels },
   { 5000, basic_audio, NULL, NULL },
   { 2000, basic_audio, bleu, fondu },
   { 5000, bleu, NULL, NULL },
