@@ -31,6 +31,8 @@ extern "C" {
   extern void wf_cube(int state);
   /* basic_audio.v */
   extern void basic_audio(int state);
+  /* vhs.c */
+  extern void vhs(int state);
 
 
 #ifdef __cplusplus
