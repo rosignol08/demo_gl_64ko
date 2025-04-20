@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAX_STRING_LENGTH 3081
+//#define MAX_STRING_LENGTH 3081
 #define PI 3.14159265
 
 static void init(void);
