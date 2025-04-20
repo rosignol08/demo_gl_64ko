@@ -55,7 +55,7 @@ int main(int argc, char ** argv) {
   gl4duwKeyDownFunc(keydown);
   gl4duwDisplayFunc(gl4dhDraw);
 
-  ahInitAudio("gorila-315977.mp3");
+  ahInitAudio("takeonme.mod");
   gl4duwMainLoop();
   return 0;
 }
