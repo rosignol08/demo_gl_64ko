@@ -169,8 +169,7 @@ void pixels(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state) 
   static GLuint tex[3], pId;
   switch(state) {
   case GL4DH_INIT:
-    /* INITIALISEZ VOTRE TRANSITION (SES VARIABLES <STATIC>s) */
-    glGetIntegerv(GL_VIEWPORT, vp); // Dimensions récupérées ici
+    glGetIntegerv(GL_VIEWPORT, vp);
     glGenTextures(3, tex);
     for(i = 0; i < 3; i++) {
       glBindTexture(GL_TEXTURE_2D, tex[i]);
@@ -184,10 +183,9 @@ void pixels(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state) 
     // Generate noise texture
     glBindTexture(GL_TEXTURE_2D, tex[2]);
     GLfloat *noise = malloc(vp[2] * vp[3] * sizeof(GLfloat));
-    srand(time(NULL)); // Use current time as seed for better randomness
+    srand(time(NULL)); 
     
     for(i = 0; i < vp[2] * vp[3]; i++) {
-      // Generate true random values instead of deterministic pattern
       noise[i] = (float)rand() / RAND_MAX;
     }
     

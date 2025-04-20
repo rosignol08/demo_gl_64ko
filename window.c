@@ -28,8 +28,8 @@ static void keydown(int keycode);
  * NULL} */
 static GL4DHanime _animations[] = {
   { 2000, rouge, NULL, NULL },
-  { 4000, rouge, vhs, fondu },
-  { 4000, vhs, NULL, NULL },
+  { 4000, rouge, vert, fondu },
+  { 5000, arbre_ls, NULL, NULL },
   { 9000, wf_cube, basic_audio, pixels },
   { 5000, basic_audio, NULL, NULL },
   { 2000, basic_audio, bleu, fondu },
@@ -55,7 +55,7 @@ int main(int argc, char ** argv) {
   gl4duwKeyDownFunc(keydown);
   gl4duwDisplayFunc(gl4dhDraw);
 
-  ahInitAudio("takeonme.mod");
+  ahInitAudio("gorila-315977.mp3");
   gl4duwMainLoop();
   return 0;
 }
@@ -65,6 +65,7 @@ int main(int argc, char ** argv) {
  * des animations.
  */
 static void init(void) {
+  SDL_GL_SetSwapInterval(1);//la sycronisation verticale
   glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
   gl4dhInit(_animations, _dim[0], _dim[1], animationsInit);
   resize(_dim[0], _dim[1]);
