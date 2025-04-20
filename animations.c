@@ -170,7 +170,7 @@ void pixels(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state) 
   switch(state) {
   case GL4DH_INIT:
     /* INITIALISEZ VOTRE TRANSITION (SES VARIABLES <STATIC>s) */
-    glGetIntegerv(GL_VIEWPORT, vp);
+    glGetIntegerv(GL_VIEWPORT, vp); // Dimensions récupérées ici
     glGenTextures(3, tex);
     for(i = 0; i < 3; i++) {
       glBindTexture(GL_TEXTURE_2D, tex[i]);
@@ -191,7 +191,7 @@ void pixels(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state) 
       noise[i] = (float)rand() / RAND_MAX;
     }
     
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, vp[2], vp[3], 0, GL_RED, GL_FLOAT, noise);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, 250, 250, 0, GL_RED, GL_FLOAT, noise);
     free(noise);
     
     pId = gl4duCreateProgram("<vs>shaders/basic.vs", "<fs>shaders/mixi.fs", NULL);
