@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAX_STRING_LENGTH 8193//4097
+#define MAX_STRING_LENGTH 3081
 #define PI 3.14159265
 
 static void init(void);
@@ -24,8 +24,8 @@ static GLuint _lineVAO = 0;
 static GLuint _lineVBO[2] = {0, 0}; /* position et couleur */
 
 /* Variables pour le L-système */
-static char _lsystem[MAX_STRING_LENGTH] = "X";
-static int _iterations = 5;
+static char* _lsystem = NULL;
+static int _iterations = 6;
 static float _angle = 25.0f;
 static float _baseLength = 0.04f;
 static float _branchRatio = 0.75f;
@@ -57,6 +57,8 @@ void arbre_ls(int state)
             glDeleteVertexArrays(1, &_lineVAO);
         if (_lineVBO[0])
             glDeleteBuffers(2, _lineVBO);
+        if (_lsystem)
+            free(_lsystem);
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
         return;
@@ -70,7 +72,12 @@ void init(void)
 {
     /* Initialiser le générateur de nombres aléatoires */
     srand(time(NULL));
-
+    _lsystem = (char *)malloc(128 * sizeof(char));
+    if (!_lsystem) {
+        //fprintf(stderr, "Erreur d'allocation mémoire\n");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(_lsystem, "X"); // Axiome de départ
     /* Générer le système L */
     generateLSystem();
 
@@ -96,39 +103,48 @@ float clampAngle(float angle, float min, float max) {
     return angle;
 }
 
-void generateLSystem(void)
-{
-    char temp[MAX_STRING_LENGTH];
-    char newChar[10];
+void generateLSystem(void){
+    //printf("Début de generateLSystem, _lsystem = \"%s\", longueur = %zu\n", _lsystem, strlen(_lsystem));
+    //char temp[MAX_STRING_LENGTH];
+    char* temp = NULL;
+    size_t tempSize = 0;
+    
+    char newChar[3];
 
-    /* Appliquer les règles de production pour chaque itération */
-    for (int i = 0; i < _iterations; i++)
-    {
+
+    //la mémoire initiale pour temp
+    tempSize = strlen(_lsystem) * 30; // Un peu plus que 21 pour avoir de la marge
+    if (tempSize < 128) tempSize = 128;
+
+    temp = (char *)malloc(tempSize * sizeof(char));
+
+    if (!temp) {
+        fprintf(stderr, "Erreur d'allocation mémoire\n");
+        exit(EXIT_FAILURE);
+    }
+    /*les règles de production pour chaque itération */
+    for (int i = 0; i < _iterations; i++){
+        //printf("  Itération %d, longueur de _lsystem = %zu\n", i, strlen(_lsystem));
+
         temp[0] = '\0';
 
-        for (int j = 0; j < strlen(_lsystem); j++)
-        {
+        for (int j = 0; j < strlen(_lsystem); j++){
+            // Vérifier si nous approchons de la limite de taille
+            if (strlen(temp) >= tempSize - 30) {
+                tempSize *= 2;
+                temp = (char *)realloc(temp, tempSize * sizeof(char));
+                if (!temp) {
+                    fprintf(stderr, "Erreur de réallocation mémoire\n");
+                    exit(EXIT_FAILURE);
+                }
+                printf("    Réallocation de temp à %zu octets\n", tempSize);
+            }
+
             if (_lsystem[j] == 'X')
             {
                 /* Règles de production pour X, avec variations aléatoires */
                 int choice = rand() % 4;
                 switch (choice)
-                /*
-                {
-                case 0:
-                    strcat(temp, "F-[[X]+X]+F[[X]+X]-X");
-                    break;
-                case 1:
-                    strcat(temp, "F-[[X]+X]+F[-FX]+X");
-                    break;
-                case 2:
-                    strcat(temp, "F[+X][-X]FX");
-                    break;
-                case 3:
-                    strcat(temp, "F[+X]F[-X]+X");
-                    break;
-                }
-                */
                {
                 case 0:
                     strcat(temp, "F-[[X]^+X]+F^[[X]&+X]-X");
@@ -157,24 +173,23 @@ void generateLSystem(void)
                 strcat(temp, newChar);
             }
         }
-
-        /* Copier le résultat pour la prochaine itération */
-        strcpy(_lsystem, temp);
+        // Après chaque itération, réallouer _lsystem à la taille exacte
+        char* newSystem = (char *)malloc((strlen(temp) + 1) * sizeof(char));
+        if (!newSystem) {
+            fprintf(stderr, "Erreur de réallocation mémoire pour _lsystem\n");
+            free(temp);
+            exit(EXIT_FAILURE);
+        }
+        
+        strcpy(newSystem, temp);
+        free(_lsystem);
+        _lsystem = newSystem;
+        
+        //printf("  Fin itération %d, nouvelle longueur = %zu\n", i, strlen(_lsystem));
     }
-}
-
-/* Fonctions pour la pile d'états */
-void pushState(float x, float y, float direction, float length, float thickness)
-{
-    if (_stackTop >= 999)
-        return;
-
-    _stackTop++;
-    _stateStack[_stackTop].x = x;
-    _stateStack[_stackTop].y = y;
-    _stateStack[_stackTop].direction = direction;
-    _stateStack[_stackTop].length = length;
-    _stateStack[_stackTop].thickness = thickness;
+    // Libérer la mémoire temporaire
+    free(temp);
+    //printf("Fin de generateLSystem, longueur finale = %zu\n", strlen(_lsystem));
 }
 
 void pushState3d(float x, float y, float z, float direction, float directionZ, float length, float thickness)
@@ -198,41 +213,6 @@ TurtleState popState(void)
     if (_stackTop > -1)
         _stackTop--;
     return state;
-}
-
-/* Dessiner une ligne avec une couleur spécifique */
-void drawLine(float x1, float y1, float x2, float y2, float thickness, float r, float g, float b)
-{
-    GLfloat vertices[6] = {
-        x1, y1, 0.0f,
-        x2, y2, 0.0f};
-
-    GLfloat colors[8] = {
-        r, g, b, 1.0f,
-        r, g, b, 1.0f};
-
-    glBindVertexArray(_lineVAO);
-
-    /* Position */
-    glBindBuffer(GL_ARRAY_BUFFER, _lineVBO[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-
-    /* Couleur */
-    glBindBuffer(GL_ARRAY_BUFFER, _lineVBO[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
-
-    /* l'épaisseur de la ligne */
-    glLineWidth(thickness);
-
-    /* Dessiner la ligne */
-    glDrawArrays(GL_LINES, 0, 2);
-
-    /* Nettoyer */
-    glBindVertexArray(0);
 }
 
 void drawLine3d(float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b)
@@ -269,41 +249,6 @@ void drawLine3d(float x1, float y1, float z1, float x2, float y2, float z2, floa
     glBindVertexArray(0);
 }
 
-/* Dessiner une feuille (une petite ligne inclinée) */
-void drawLeaf(float x, float y, float direction, float season)
-{
-    float length = 0.02f;
-    float r = 0.0f, g = 0.8f, b = 0.0f;
-
-    /* Ajuster la couleur selon la saison */
-    if (season == 0)
-    { /* Été */
-        r = 0.0f;
-        g = 0.8f + ((float)rand() / RAND_MAX) * 0.2f;
-        b = 0.0f;
-    }
-    //else if (season == 1)
-    //{ /* Automne */
-    //    r = 0.8f + ((float)rand() / RAND_MAX) * 0.2f;
-    //    g = 0.4f + ((float)rand() / RAND_MAX) * 0.3f;
-    //    b = 0.0f;
-    //}
-    //else if (season == 2)
-    //{ /* Hiver */
-    //    if (rand() % 100 < 70)
-    //        return; /* 70% de chance de ne pas dessiner en hiver */
-    //    r = 0.5f + ((float)rand() / RAND_MAX) * 0.2f;
-    //    g = 0.5f + ((float)rand() / RAND_MAX) * 0.2f;
-    //    b = 0.5f + ((float)rand() / RAND_MAX) * 0.2f;
-    //}
-
-    float angleRad = direction * PI / 180.0f;
-    float x2 = x + length * cos(angleRad);
-    float y2 = y + length * sin(angleRad);
-
-    drawLine(x, y, x2, y2, 2.0f, r, g, b);
-}
-
 void drawLeaf3d(float x, float y, float z, float direction, float directionZ, float season)
 {
     float length = 0.02f;
@@ -316,20 +261,6 @@ void drawLeaf3d(float x, float y, float z, float direction, float directionZ, fl
         g = 0.8f + ((float)rand() / RAND_MAX) * 0.2f;
         b = 0.0f;
     }
-    //else if (season == 1)
-    //{ /* Automne */
-    //    r = 0.8f + ((float)rand() / RAND_MAX) * 0.2f;
-    //    g = 0.4f + ((float)rand() / RAND_MAX) * 0.3f;
-    //    b = 0.0f;
-    //}
-    //else if (season == 2)
-    //{ /* Hiver */
-    //    if (rand() % 100 < 70)
-    //        return; /* 70% de chance de ne pas dessiner en hiver */
-    //    r = 0.5f + ((float)rand() / RAND_MAX) * 0.2f;
-    //    g = 0.5f + ((float)rand() / RAND_MAX) * 0.2f;
-    //    b = 0.5f + ((float)rand() / RAND_MAX) * 0.2f;
-    //}
     float angleRadXY = direction * PI / 180.0f;
     float angleRadZ = directionZ * PI / 180.0f;
     
@@ -337,10 +268,6 @@ void drawLeaf3d(float x, float y, float z, float direction, float directionZ, fl
     float y2 = y + length * sin(angleRadXY) * cos(angleRadZ);
     float z2 = z + length * sin(angleRadZ);
     
-    //float angleRad = direction * PI / 180.0f;
-    //float x2 = x + length * cos(angleRad);
-    //float y2 = y + length * sin(angleRad);
-
     drawLine3d(x, y, z, x2, y2, z, 2.0f, r, g, b);
 }
 
@@ -353,13 +280,11 @@ void draw(void)
 
     /* La scène dure 5000ms = 5s*/
     double sceneTime = gl4dhGetTicks() % 5000 / 5000.0;
-    
-    /* _iterations atteigne 5 seulement à la fin de la scène */
     static int lastIteration = 0;
-    int targetIteration = (int)(sceneTime * 5.0); //max d'itérations
+    int targetIteration = (int)(sceneTime * 6.0); //max d'itérations
     
     /* Ne régénérer que si une nouvelle itération est atteinte */
-    if(targetIteration > lastIteration && targetIteration <= 5) {
+    if(targetIteration > lastIteration && targetIteration <= 6) {
         lastIteration = targetIteration;
         
         /* Réinitialiser le L-system pour partir de l'axiome X */
@@ -455,11 +380,11 @@ void draw(void)
             break;
         case '^':  // Rotation vers le haut (dans l'espace 3D)
             directionZ += _angle;
-            directionZ = clampAngle(directionZ, -60.0f, 60.0f); // Limiter la rotation
+            directionZ = clampAngle(directionZ, -60.0f, 60.0f); //limitation de la rotation
             break;
         case '&':  // Rotation vers le bas (dans l'espace 3D)
             directionZ -= _angle;
-            directionZ = clampAngle(directionZ, -60.0f, 60.0f); // Limiter la rotation
+            directionZ = clampAngle(directionZ, -60.0f, 60.0f); //limitation de la rotation
             break;
         case '[':
             /* Sauvegarder l'état actuel */
@@ -505,6 +430,9 @@ void draw(void)
     t0 = t;
     /* Désactiver le shader */
     glUseProgram(0);
+
+    //desactiver le depth test ici ça sert à rien
+    glDisable(GL_DEPTH_TEST);
 
     /* Mettre à jour la rotation */
     rotation += 15.0f * dt;
