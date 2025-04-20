@@ -89,6 +89,13 @@ void init(void)
     gl4duFrustumf(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
 }
 
+// Fonction pour limiter un angle dans une plage
+float clampAngle(float angle, float min, float max) {
+    if (angle < min) return min;
+    if (angle > max) return max;
+    return angle;
+}
+
 void generateLSystem(void)
 {
     char temp[MAX_STRING_LENGTH];
@@ -448,9 +455,11 @@ void draw(void)
             break;
         case '^':  // Rotation vers le haut (dans l'espace 3D)
             directionZ += _angle;
+            directionZ = clampAngle(directionZ, -60.0f, 60.0f); // Limiter la rotation
             break;
         case '&':  // Rotation vers le bas (dans l'espace 3D)
             directionZ -= _angle;
+            directionZ = clampAngle(directionZ, -60.0f, 60.0f); // Limiter la rotation
             break;
         case '[':
             /* Sauvegarder l'état actuel */
