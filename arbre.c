@@ -45,7 +45,7 @@ typedef struct
 static TurtleState _stateStack[100];
 static int _stackTop = -1;
 
-void arbre_ls(int state)
+void arbre(int state)
 {
     switch (state)
     {

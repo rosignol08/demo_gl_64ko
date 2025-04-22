@@ -34,7 +34,8 @@ extern "C" {
   extern void basic_audio(int state);
   /* vhs.c */
   extern void vhs(int state);
-  extern void arbre_ls(int state);
+  extern void arbre(int state);
+  extern void montagne(int state);
 
 
 #ifdef __cplusplus

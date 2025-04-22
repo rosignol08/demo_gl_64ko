@@ -13,7 +13,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-
 //#define USE_MINIFIED_SHADER //faut utiliser https://ctrl-alt-test.fr/minifier/?main pour réduire la taille des shaders
 /* ---- Début du code de noise.c ---- */
 
@@ -143,25 +142,21 @@ static void unuseNoiseTextures(int shift)
     glActiveTexture(GL_TEXTURE0);
 }
 
-static void freeNoiseTextures(void)
-{
-    glDeleteTextures(1, &gradTexId);
-    glDeleteTextures(1, &permTexId);
-    permTexId = 0;
-    gradTexId = 0;
-}
+//static void freeNoiseTextures(void)
+//{
+//    glDeleteTextures(1, &gradTexId);
+//    glDeleteTextures(1, &permTexId);
+//    permTexId = 0;
+//    gradTexId = 0;
+//}
 
 /* ---- Fin du code provenant de noise.c ---- */
 
 /* Prototypes des fonctions statiques contenues dans ce fichier C */
 static void init(void);
 static void draw(void);
-// static void keyd(int keycode);
-static void resize(int w, int h);
-static void quit(void);
-
 /*!\brief largeur et hauteur de la fenêtre */
-static int _ww = 1280, _wh = 960;
+//static int _ww = 1280, _wh = 960;
 /*!\brief identifiant du (futur) GLSL program */
 static GLuint _pId = 0;
 /*!\brief identifiant pour une géométrie GL4D */
@@ -173,24 +168,30 @@ static GLuint _sphereId = 0;
 static GLuint _fboId = 0;
 static GLuint _texId = 0;
 
+/* Variables pour la position de la caméra, le point regardé et le vecteur up */
+static GLfloat eyeX = 0.0f, eyeY = 0.0f, eyeZ = 0.0f;
+float test = 2.0f;
 /* booléen pour bruit ou pas de bruit */
-static int _noise = 0;
+//static int _noise = 0;
 
-/*!\brief créé la fenêtre d'affichage, initialise GL et les données,
- * affecte les fonctions d'événements et lance la boucle principale
- * d'affichage.
- */
-int main(int argc, char **argv)
-{
-    if (!gl4duwCreateWindow(argc, argv, "GL4Dummies", 20, 20, _ww, _wh, GL4DW_RESIZABLE | GL4DW_SHOWN))
-        return 1;
-    init();
-    atexit(quit);
-    gl4duwResizeFunc(resize);
-    // gl4duwKeyDownFunc(keyd);
-    gl4duwDisplayFunc(draw);
-    gl4duwMainLoop();
-    return 0;
+void montagne(int state) {
+        
+    switch(state) {
+    case GL4DH_INIT:
+      /* INITIALISEZ VOTRE ANIMATION (SES VARIABLES <STATIC>s) */
+      init();
+      return;
+    case GL4DH_FREE:
+      /* LIBERER LA MEMOIRE UTILISEE PAR LES <STATIC>s */
+      return;
+    case GL4DH_UPDATE_WITH_AUDIO:
+      /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */
+      return;
+    default: /* GL4DH_DRAW */
+      /* JOUER L'ANIMATION */
+      draw();
+      return;
+    }
 }
 
 /*!\brief initialise les paramètres OpenGL et les données. */
@@ -214,10 +215,16 @@ void init(void)
     glEnable(GL_DEPTH_TEST);
     /* Création des matrices GL4Dummies, une pour la projection, une
      * pour la modélisation et une pour la vue */
+    //gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
+    //gl4duBindMatrix("projectionMatrix");
+    //gl4duLoadIdentityf();
+    //gl4duFrustumf(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
+    //
+    //gl4duGenMatrix(GL_FLOAT, "modelMatrix");
+    //gl4duGenMatrix(GL_FLOAT, "viewMatrix");
     gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
     gl4duGenMatrix(GL_FLOAT, "modelMatrix");
     gl4duGenMatrix(GL_FLOAT, "viewMatrix");
-    resize(_ww, _wh);
     initNoiseTextures();
 
     glGenFramebuffers(1, &_fboId);
@@ -225,14 +232,29 @@ void init(void)
     glBindTexture(GL_TEXTURE_2D, _texId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _ww, _wh, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1280, 960, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
-/* Variables pour la position de la caméra, le point regardé et le vecteur up */
-static GLfloat eyeX = 0.20f, eyeY = 0.20f, eyeZ = 0.20f;
-static GLfloat centerX = -20.10f, centerY = 4.40f, centerZ = -1.80f;
-static GLfloat upX = 0.0f, upY = 0.40f, upZ = 0.0f;
-
+/* Fonction pour simplifier le contrôle de la caméra */
+static void setupCamera(float posX, float posY, float posZ, float rotX, float rotY, float rotZ) {
+    // Calcul du vecteur de direction à partir des angles de rotation
+    float dirX = cosf(rotY) * cosf(rotX);
+    float dirY = sinf(rotX);
+    float dirZ = sinf(rotY) * cosf(rotX);
+    
+    // Point regardé = position + direction
+    float targetX = posX + dirX;
+    float targetY = posY + dirY;
+    float targetZ = posZ + dirZ;
+    
+    // Vecteur up (dépend de l'angle Z pour permettre le "roll")
+    float upX = sinf(rotZ) * sinf(rotY);
+    float upY = cosf(rotZ);
+    float upZ = -sinf(rotZ) * cosf(rotY);
+    
+    // Appel à gl4duLookAtf avec les paramètres calculés
+    gl4duLookAtf(posX, posY, posZ, targetX, targetY, targetZ, upX, upY, upZ);
+}
 /*!\brief Cette fonction dessine dans le contexte OpenGL actif. */
 void draw(void)
 {
@@ -240,30 +262,37 @@ void draw(void)
     static double t0 = 0.0;
     double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
     t0 = t;
-    glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _texId, 0);
-    gl4dgDraw(_quadId);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    ////////////////////
+
+    //glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
+    //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _texId, 0);
+    //gl4dgDraw(_quadId);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     /* effacement du buffer de couleur et de profondeur */
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     /* activation du programme _pId */
     glUseProgram(_pId);
+    /* lier la matrice de projection */
+    //gl4duBindMatrix("projectionMatrix");
     /* lier la matrice vue */
     gl4duBindMatrix("viewMatrix");
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
     /* Composer la matrice vue avec la caméra */
-    // gl4duLookAtf(0.0f, 2.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-    gl4duLookAtf(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ);
-    eyeY += 0.0005f;
+    //gl4duLookAtf(0.0f, 2.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    
+    eyeX = 0.50f, eyeY = 0.50f, eyeZ = 0.0f;
+     
+    //setupCamera(eyeX, eyeY, eyeZ, 0.0f, 0.0f, test);
+    gl4duLookAtf(0.0f, 2.5f, test, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    //eyeY += 0.0005f;
+    test += 0.005f;
     /* lier la matrice modèle */
     gl4duBindMatrix("modelMatrix");
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
     /* Mise à l'échelle du terrain */
-    gl4duScalef(1.0f, 0.5f, 1.0f);
+    gl4duScalef(5.0f, 2.5f, 5.0f);
     /* Envoyer les matrices */
     gl4duSendMatrices();
 
@@ -293,7 +322,15 @@ void draw(void)
     useNoiseTextures(_pId, 0);
 
     /* Dessiner le terrain */
+    //gl4dgDraw(_gridId);
+    
+    /* Use proper culling for the terrain to improve performance */
+    //glCullFace(GL_BACK);
+    
+    glEnable(GL_DEPTH_TEST);//faut activer ça
+    glEnable(GL_CULL_FACE);
     gl4dgDraw(_gridId);
+    //glEnable(GL_DEPTH_TEST);
 
     /* Configurer la sphère pour le ciel */
     gl4duBindMatrix("modelMatrix");
@@ -323,22 +360,22 @@ void draw(void)
 }
 
 /* Nettoyage à la sortie */
-void quit(void)
-{
-    if (_fboId)
-    {
-        glDeleteFramebuffers(1, &_fboId);
-        _fboId = 0;
-    }
-    if (_texId)
-    {
-        glDeleteTextures(1, &_texId);
-        _texId = 0;
-    }
-
-    /* Libérer les textures de bruit */
-    freeNoiseTextures();
-
-    /* Nettoyer GL4Dummies */
-    gl4duClean(GL4DU_ALL);
-}
+//void quit(void)
+//{
+//    if (_fboId)
+//    {
+//        glDeleteFramebuffers(1, &_fboId);
+//        _fboId = 0;
+//    }
+//    if (_texId)
+//    {
+//        glDeleteTextures(1, &_texId);
+//        _texId = 0;
+//    }
+//
+//    /* Libérer les textures de bruit */
+//    freeNoiseTextures();
+//
+//    /* Nettoyer GL4Dummies */
+//    gl4duClean(GL4DU_ALL);
+//}
