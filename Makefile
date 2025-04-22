@@ -21,9 +21,9 @@ PROGNAME = rgb
 VERSION = 1.2
 distdir = $(PACKNAME)_$(PROGNAME)-$(VERSION)
 HEADERS = animations.h audioHelper.h tiny4D.h
-SOURCES = animations.c audioHelper.c window.c wf_cube.c basic_audio.c vhs.c test_arb.c
-# compile test_arb.c avec -Os aulieu de -O3
-test_arb.o: CFLAGS = -Os
+SOURCES = animations.c audioHelper.c window.c wf_cube.c basic_audio.c vhs.c arbre.c
+# compile arbre.c avec -Os aulieu de -O3
+arbre.o: CFLAGS = -Os
 MSVCSRC = $(patsubst %,<ClCompile Include=\"%\\\" \\/>,$(SOURCES))
 OBJ = $(SOURCES:.c=.o)
 DOXYFILE = documentation/Doxyfile

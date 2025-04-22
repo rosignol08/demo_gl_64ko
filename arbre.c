@@ -348,27 +348,6 @@ void draw(void)
     /* Réduire légèrement l'épaisseur pour un effet de branche qui s'affine */
     thickness *= 0.99f;
     break;
-
-            ///* Calculer la nouvelle position */
-            //float angleRad = direction * PI / 180.0f;
-            //float newX = x + length * cos(angleRad);
-            //float newY = y + length * sin(angleRad);
-            //float newZ = z + 
-            ////z dois pas etre constante
-//
-            ///* Dessiner la branche */
-            //float r = 0.6f, g = 0.4f, b = 0.2f; /* Couleur marron pour le tronc/branches */
-            //drawLine3d(x, y, z, newX, newY, newZ, thickness, r, g, b);
-            ////drawLine(x, y, newX, newY, thickness, r, g, b);
-//
-            ///* Mettre à jour la position */
-            //x = newX;
-            //y = newY;
-            //z = newZ;
-//
-            ///* Réduire légèrement l'épaisseur pour un effet de branche qui s'affine */
-            //thickness *= 0.99f;
-            //break;
         }
         case '+':
             /* Tourner à gauche */
@@ -420,12 +399,6 @@ void draw(void)
 
     /* Rotation lente de l'arbre */
     rotation += 10.0f * dt;
-
-    /* Changement occasionnel de saison */
-    //if ((int)(t) % 5 == 0 && (int)(t) != (int)(t0))
-    //{
-    //    _season = (_season + 1) % 3;
-    //}
 
     t0 = t;
     /* Désactiver le shader */
