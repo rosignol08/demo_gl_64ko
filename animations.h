@@ -33,7 +33,7 @@ extern "C" {
   /* basic_audio.v */
   extern void basic_audio(int state);
   /* vhs.c */
-  extern void vhs(int state);
+  //extern void vhs(int state);
   extern void arbre(int state);
   extern void montagne(int state);
 
