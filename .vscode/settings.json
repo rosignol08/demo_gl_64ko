@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/romaric/Bureau/demo_gl_64ko",
+            "binaryPath": "/home/romaric/Bureau/demo_gl_64ko/rgb",
+            "binaryArgs": []
+        }
+    ]
+}

@@ -12,7 +12,7 @@
 #include <GL4D/gl4dh.h>
 #include <string.h>
 #include <stdlib.h>
-#include <time.h>
+//#include <time.h>
 //#define USE_MINIFIED_SHADER //faut utiliser https://ctrl-alt-test.fr/minifier/?main pour réduire la taille des shaders
 /* ---- Début du code de noise.c ---- */
 
@@ -27,7 +27,7 @@ static void initRandomPermAndGrad(void)
     int i, j;
 
     /* Seed the random number generator */
-    srand(time(NULL));
+    srand(42);
 
     /* Generate random permutation array */
     for (i = 0; i < 256; i++)
@@ -168,6 +168,7 @@ static GLuint _sphereId = 0;
 static GLuint _fboId = 0;
 static GLuint _texId = 0;
 
+
 /* Variables pour la position de la caméra, le point regardé et le vecteur up */
 static GLfloat eyeX = 0.0f, eyeY = 0.0f, eyeZ = 0.0f;
 float test = 2.0f;
@@ -284,7 +285,7 @@ void draw(void)
     eyeX = 0.50f, eyeY = 0.50f, eyeZ = 0.0f;
      
     //setupCamera(eyeX, eyeY, eyeZ, 0.0f, 0.0f, test);
-    gl4duLookAtf(0.0f, 2.5f, test, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    gl4duLookAtf(0.0f, 3.5f, test, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
     //eyeY += 0.0005f;
     test += 0.005f;
     /* lier la matrice modèle */

@@ -1,6 +1,6 @@
 /*!\file test_arb.c
  * \brief GL4Dummies, système L pour générer un arbre
- * \author Modifié par vous
+ * \author Modifié par romaric de https://github.com/shortstheory/l-systems-opengl/tree/master
  * \date avril 20, 2025
  */
 #include <GL4D/gl4duw_SDL2.h>
@@ -249,26 +249,43 @@ void drawLine3d(float x1, float y1, float z1, float x2, float y2, float z2, floa
     glBindVertexArray(0);
 }
 
-void drawLeaf3d(float x, float y, float z, float direction, float directionZ, float season)
+void drawLeaf3d(float x, float y, float z, float direction, float directionZ, int season)
 {
-    float length = 0.02f;
+    float leafSize = 0.03f;
     float r = 0.0f, g = 0.8f, b = 0.0f;
+    float thickness = 2.5f;
 
     /* Ajuster la couleur selon la saison */
-    if (season == 0)
-    { /* Été */
-        r = 0.0f;
-        g = 0.8f + ((float)rand() / RAND_MAX) * 0.2f;
+    if (season == 0) { /* Été */
+        r = 0.0f + ((float)rand() / RAND_MAX) * 0.2f; // Légère variation
+        g = 0.7f + ((float)rand() / RAND_MAX) * 0.3f; // Variation de vert
         b = 0.0f;
     }
+
+    /* Angle pour l'orientation de la feuille */
     float angleRadXY = direction * PI / 180.0f;
     float angleRadZ = directionZ * PI / 180.0f;
     
-    float x2 = x + length * cos(angleRadXY) * cos(angleRadZ);
-    float y2 = y + length * sin(angleRadXY) * cos(angleRadZ);
-    float z2 = z + length * sin(angleRadZ);
+    /* Créer un losange/diamant pour représenter la feuille */
+    float xTip = x + leafSize * 1.5f * cos(angleRadXY) * cos(angleRadZ);
+    float yTip = y + leafSize * 1.5f * sin(angleRadXY) * cos(angleRadZ);
+    float zTip = z + leafSize * 1.5f * sin(angleRadZ);
     
-    drawLine3d(x, y, z, x2, y2, z, 2.0f, r, g, b);
+    /* Points latéraux pour donner une forme de feuille */
+    float xLeft = x + leafSize * 0.7f * cos(angleRadXY + PI/2) * cos(angleRadZ - PI/6);
+    float yLeft = y + leafSize * 0.7f * sin(angleRadXY + PI/2) * cos(angleRadZ - PI/6);
+    float zLeft = z + leafSize * 0.7f * sin(angleRadZ - PI/6);
+    
+    float xRight = x + leafSize * 0.7f * cos(angleRadXY - PI/2) * cos(angleRadZ + PI/6);
+    float yRight = y + leafSize * 0.7f * sin(angleRadXY - PI/2) * cos(angleRadZ + PI/6);
+    float zRight = z + leafSize * 0.7f * sin(angleRadZ + PI/6);
+    
+    /* Dessiner le contour de la feuille */
+    drawLine3d(x, y, z, xTip, yTip, zTip, thickness, r, g, b);
+    drawLine3d(x, y, z, xLeft, yLeft, zLeft, thickness, r, g, b);
+    drawLine3d(x, y, z, xRight, yRight, zRight, thickness, r, g, b);
+    drawLine3d(xTip, yTip, zTip, xLeft, yLeft, zLeft, thickness, r, g, b);
+    drawLine3d(xTip, yTip, zTip, xRight, yRight, zRight, thickness, r, g, b);
 }
 
 void draw(void)
@@ -306,7 +323,7 @@ void draw(void)
     gl4duLoadIdentityf();
     gl4duTranslatef(0.0f, -0.8f, -2.0f);
     gl4duRotatef(rotation, 0, 1, 0);//TODO
-
+    gl4duRotatef(5.5f, 0, 0, 1);//TODO
     gl4duBindMatrix("projectionMatrix");
     gl4duSendMatrices();
 
@@ -401,6 +418,8 @@ void draw(void)
     rotation += 10.0f * dt;
 
     t0 = t;
+    //envoie t au vertex shader
+    glUniform1f(glGetUniformLocation(_pId, "temps"), t * 0.1f);
     /* Désactiver le shader */
     glUseProgram(0);
 
