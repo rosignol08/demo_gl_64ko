@@ -165,7 +165,6 @@ void draw(void)
 {
     static double t0 = 0.0;
     static float ballY = 0.0f;
-    static float ballVelocity = 0.0f;
     static const float gravity = 9.8f;
     static const float dampening = 0.8f;
     static const float floorY = -2.0f;
@@ -180,11 +179,18 @@ void draw(void)
 
     /* Set up light position for moving light */
     GLfloat lightPos[4] = {3.0f * sinf(t * 0.5f), 1 + 0.50f * sinf(t), 3.0f * cosf(t), 1.0f};
-    GLfloat ballColor[4] = {0.8f, 0.2f, 0.2f, 1.0f};    /* Red ball */
+    
     GLfloat ambientColor[4] = {0.1f, 0.1f, 0.1f, 1.0f}; /* Dark blue ambient */
     GLfloat lightColor[4] = {1.2f, 1.2f, 1.2f, 1.0f};   /* Lumière plus intense (valeurs > 1 pour HDR) */
-    GLfloat shininess = 64.0f;                          // Valeur de brillance (plus c'est élevé, plus le reflet est concentré)
 
+    GLfloat light2couleur_obj[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
+    GLfloat light2direction[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+    GLfloat light2couleur[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
+
+    GLfloat light3couleur_obj[4] = {0.8f, 0.8f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
+    GLfloat light3direction[4] = {0.0f, -1.0f, 0.0f, 0.0f};
+    GLfloat light3couleur[4] = {0.8f, 0.8f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
+    
     /* Clear the screen */
     glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -199,23 +205,33 @@ void draw(void)
 
     /* Fixed position for ball - no physics */
     ballY = 0.0f;        /* Keep the ball in the middle */
-    ballVelocity = 0.0f; /* No velocity */
+
     // Réinitialiser le paramètre "isEmissive" pour les autres objets
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
     glUniform4fv(glGetUniformLocation(_pId, "lightColor"), 1, lightColor);
     glUniform4fv(glGetUniformLocation(_pId, "lightPosition"), 1, lightPos);
-    // Configurer la lumière directionnelle émise par ce mur
+
+    // Configurer la lumière directionnelle émise par un mur
     glUniform1i(glGetUniformLocation(_pId, "useSecondLight"), 1);
-    // Direction: de droite à gauche (-1,0,0)
-    GLfloat directionalLightDir[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+    
     // couleur de la lumière directionnelle
-    GLfloat directionalLightColor[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
-    glUniform4fv(glGetUniformLocation(_pId, "secondLightDirection"), 1, directionalLightDir);
-    glUniform4fv(glGetUniformLocation(_pId, "secondLightColor"), 1, directionalLightColor);
+    glUniform4fv(glGetUniformLocation(_pId, "secondLightPosition"), 1, light2direction);
+    glUniform4fv(glGetUniformLocation(_pId, "secondLightColor"), 1, light2couleur);
+    // Ajouter ces lignes
+    glUniform1i(glGetUniformLocation(_pId, "secondLightType"), 0); // 0 pour directionnelle
+
+
+    //troisième lumière directionnelle
+    glUniform1i(glGetUniformLocation(_pId, "useThirdLight"), 1);
+    glUniform4fv(glGetUniformLocation(_pId, "thirdLightPosition"), 1, light3direction);
+    glUniform4fv(glGetUniformLocation(_pId, "thirdLightColor"), 1, light3couleur);
+    glUniform1i(glGetUniformLocation(_pId, "thirdLightType"), 0);  // 0 pour directionnelle
+
+
     // Draw a box with 6 quads (floor, ceiling, and 4 walls)
     gl4duBindMatrix("model");
 
-    // Common settings
+    //truc pour les murs
     GLfloat boxColor[4] = {0.3f, 0.3f, 0.3f, 1.0f};
     glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, boxColor);
     glDisable(GL_CULL_FACE);
@@ -236,8 +252,8 @@ void draw(void)
 
     // Rendre ce mur émissif
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
-    GLfloat lightWallColor[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, lightWallColor);
+    // Couleur de la lumière émise par le mur
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, light2couleur_obj);
 
     // 3. Left wall
     gl4duLoadIdentityf();
@@ -271,6 +287,10 @@ void draw(void)
     /* Send matrices to the shader */
     gl4duSendMatrices();
 
+    //la balle de base
+    GLfloat ballColor[4] = {0.8f, 0.2f, 0.2f, 1.0f};    /* Red ball */
+    GLfloat shininess = 64.0f;                          // Valeur de brillance (plus c'est élevé, plus le reflet est concentré)
+
     // envoie des truc au shader
     glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, ballColor);
     glUniform4fv(glGetUniformLocation(_pId, "lightColor"), 1, lightColor);
@@ -278,11 +298,6 @@ void draw(void)
     glUniform4fv(glGetUniformLocation(_pId, "ambientColor"), 1, ambientColor);
     glUniform1f(glGetUniformLocation(_pId, "shininess"), shininess);
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-    //// Configurer la lumière directionnelle émise par ce mur
-    //glUniform1i(glGetUniformLocation(_pId, "useSecondLight"), 1);
-    //// Direction: de droite à gauche (-1,0,0)
-//
-    //glUniform4fv(glGetUniformLocation(_pId, "secondLightDirection"), 1, directionalLightDir);
 
     // dessine la sphère
     gl4dgDraw(_sphereId);
@@ -305,8 +320,7 @@ void draw(void)
     glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, lightBallColor);
     glUniform4fv(glGetUniformLocation(_pId, "lightPosition"), 1, lightPos);
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1); // Cette balle est émissive
-    int lightType = 1;                                        // 1 = positional (par défaut), 0 = directional
-    glUniform1i(glGetUniformLocation(_pId, "lightType"), lightType);
+    glUniform1i(glGetUniformLocation(_pId, "lightType"), 1);
 
     // Dessiner la balle lumineuse
     gl4dgDraw(_sphereId2);
