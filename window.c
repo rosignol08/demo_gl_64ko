@@ -29,7 +29,7 @@ static void keydown(int keycode);
 static GL4DHanime _animations[] = {
   { 2000, rouge, NULL, NULL },
   { 2000, rouge, vert, fondu },
-  { 6000, balle_song, NULL, NULL },
+  { 9000, balle_song, NULL, NULL },
   { 9000, arbre, basic_audio, pixels },
   { 5000, basic_audio, NULL, NULL },
   { 2000, basic_audio, bleu, fondu },
@@ -55,7 +55,7 @@ int main(int argc, char ** argv) {
   gl4duwKeyDownFunc(keydown);
   gl4duwDisplayFunc(gl4dhDraw);
 
-  ahInitAudio("takeonme.mod");
+  ahInitAudio("snow-waltz-winter-piano-280274.mid");
   gl4duwMainLoop();
   return 0;
 }

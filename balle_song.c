@@ -21,9 +21,19 @@ static void quit(void);
 /* Global variables */
 static GLuint _wW = 800, _wH = 600;
 static GLuint _sphereId = 0;
+static GLuint _sphereId2 = 0;
 static GLuint _quadId = 0;
 static GLuint _pId = 0;
-float teste = 2.0f;
+
+// post traitement
+static GLuint _fboId = 0;
+static GLuint _texId = 0;
+static GLuint _depthTexId = 0;
+static GLuint _postProcessProgramId = 0;
+static GLuint _screenQuadId = 0;
+
+int effets = 0;
+float teste = 0;
 
 void balle_song(int state)
 {
@@ -33,6 +43,23 @@ void balle_song(int state)
         init();
         return;
     case GL4DH_FREE:
+        if (_fboId)
+        {
+            glDeleteFramebuffers(1, &_fboId);
+            _fboId = 0;
+        }
+
+        if (_texId)
+        {
+            glDeleteTextures(1, &_texId);
+            _texId = 0;
+        }
+
+        if (_depthTexId)
+        {
+            glDeleteTextures(1, &_depthTexId);
+            _depthTexId = 0;
+        }
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
         return;
@@ -45,17 +72,52 @@ void balle_song(int state)
 /* Initialize the scene */
 void init(void)
 {
-    /* Set background color to dark blue */
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    /* Enable depth testing for proper 3D rendering */
+    glEnable(GL_DEPTH_TEST);
+    /* Create shader program */
+    _pId = gl4duCreateProgram("<vs>shaders/ball.vs", "<fs>shaders/ball.fs", NULL);
+
+    /* Créer le shader pour le post-processing */
+    _postProcessProgramId = gl4duCreateProgram("<vs>shaders/post.vs", "<fs>shaders/post.fs", NULL);
+
+    /* Créer un quad plein écran pour le post-processing */
+    _screenQuadId = gl4dgGenQuadf();
+
+    /* Créer le FBO et les textures */
+    glGenFramebuffers(1, &_fboId);
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
+
+    /* Créer la texture de couleur */
+    glGenTextures(1, &_texId);
+    glBindTexture(GL_TEXTURE_2D, _texId);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _wW, _wH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texId, 0);
+
+    /* Créer la texture de profondeur */
+    glGenTextures(1, &_depthTexId);
+    glBindTexture(GL_TEXTURE_2D, _depthTexId);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, _wW, _wH, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _depthTexId, 0);
+
+    /* Vérifier que le FBO est complet */
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        fprintf(stderr, "Framebuffer incomplet!\n");
+    }
+
+    /* Revenir au framebuffer par défaut */
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     /* Create a sphere for the ball */
     _sphereId = gl4dgGenSpheref(30, 30);
     // pour le sol
-    _quadId = gl4dgGenQuadf();
-    //orbes de 
-
-    /* Create shader program */
-    _pId = gl4duCreateProgram("<vs>shaders/ball.vs", "<fs>shaders/ball.fs", NULL);
+    _quadId = gl4dgGenCubef(); // gl4dgGenQuadf();
+    // orbes de lumiere
+    _sphereId2 = gl4dgGenSpheref(20, 20);
 
     /* Enable depth testing for proper 3D rendering */
     glEnable(GL_DEPTH_TEST);
@@ -75,6 +137,20 @@ static void resize(int width, int height)
     GLfloat ratio;
     _wW = width;
     _wH = height;
+
+    /* Redimensionner les textures du FBO */
+    if (_texId)
+    {
+        glBindTexture(GL_TEXTURE_2D, _texId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _wW, _wH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    }
+
+    if (_depthTexId)
+    {
+        glBindTexture(GL_TEXTURE_2D, _depthTexId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, _wW, _wH, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    }
+
     glViewport(0, 0, _wW, _wH);
     ratio = _wW / ((GLfloat)_wH);
 
@@ -98,65 +174,180 @@ void draw(void)
     double dt = t - t0;
     t0 = t;
 
+    float lightBallX = 3.0f * sinf(t * 0.5f);
+    float lightBallY = 1.0f + 0.5f * sinf(t);
+    float lightBallZ = 3.0f * cosf(t);
+
+    /* Set up light position for moving light */
+    GLfloat lightPos[4] = {3.0f * sinf(t * 0.5f), 1 + 0.50f * sinf(t), 3.0f * cosf(t), 1.0f};
+    GLfloat ballColor[4] = {0.8f, 0.2f, 0.2f, 1.0f};    /* Red ball */
+    GLfloat ambientColor[4] = {0.1f, 0.1f, 0.1f, 1.0f}; /* Dark blue ambient */
+    GLfloat lightColor[4] = {1.2f, 1.2f, 1.2f, 1.0f};   /* Lumière plus intense (valeurs > 1 pour HDR) */
+    GLfloat shininess = 64.0f;                          // Valeur de brillance (plus c'est élevé, plus le reflet est concentré)
+
     /* Clear the screen */
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+    /* Activate shader program */
+    glUseProgram(_pId);
     /* Set up camera position */
     gl4duBindMatrix("view");
     gl4duLoadIdentityf();
-    gl4duLookAtf(0.0f, 1.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    // gl4duLookAtf(0.0f, 1.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    gl4duLookAtf(0.0f, 1.0f, 7.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
     /* Fixed position for ball - no physics */
     ballY = 0.0f;        /* Keep the ball in the middle */
     ballVelocity = 0.0f; /* No velocity */
+    // Réinitialiser le paramètre "isEmissive" pour les autres objets
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+    glUniform4fv(glGetUniformLocation(_pId, "lightColor"), 1, lightColor);
+    glUniform4fv(glGetUniformLocation(_pId, "lightPosition"), 1, lightPos);
+    // Configurer la lumière directionnelle émise par ce mur
+    glUniform1i(glGetUniformLocation(_pId, "useSecondLight"), 1);
+    // Direction: de droite à gauche (-1,0,0)
+    GLfloat directionalLightDir[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+    // couleur de la lumière directionnelle
+    GLfloat directionalLightColor[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
+    glUniform4fv(glGetUniformLocation(_pId, "secondLightDirection"), 1, directionalLightDir);
+    glUniform4fv(glGetUniformLocation(_pId, "secondLightColor"), 1, directionalLightColor);
+    // Draw a box with 6 quads (floor, ceiling, and 4 walls)
+    gl4duBindMatrix("model");
 
+    // Common settings
+    GLfloat boxColor[4] = {0.3f, 0.3f, 0.3f, 1.0f};
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, boxColor);
+    glDisable(GL_CULL_FACE);
+
+    // 1. Floor
+    gl4duLoadIdentityf();
+    gl4duTranslatef(0.0f, floorY - 0.5f, 0.0f);
+    gl4duScalef(5.0f, 0.1f, 5.0f);
+    gl4duSendMatrices();
+    gl4dgDraw(_quadId);
+
+    // 2. Ceiling
+    gl4duLoadIdentityf();
+    gl4duTranslatef(0.0f, floorY + 5.0f, 0.0f);
+    gl4duScalef(5.0f, 0.1f, 5.0f);
+    gl4duSendMatrices();
+    gl4dgDraw(_quadId);
+
+    // Rendre ce mur émissif
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
+    GLfloat lightWallColor[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, lightWallColor);
+
+    // 3. Left wall
+    gl4duLoadIdentityf();
+    gl4duTranslatef(-5.0f, floorY + 2.5f, 0.0f);
+    gl4duScalef(0.1f, 5.0f, 5.0f);
+    gl4duSendMatrices();
+    gl4dgDraw(_quadId);
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, boxColor);
+
+    // 4. Right wall
+    gl4duLoadIdentityf();
+    gl4duTranslatef(5.0f, floorY + 2.5f, 0.0f);
+    gl4duScalef(0.1f, 5.0f, 5.0f);
+    gl4duSendMatrices();
+    gl4dgDraw(_quadId);
+
+    // 5. Front wall
+    gl4duLoadIdentityf();
+    gl4duTranslatef(0.0f, floorY + 2.5f, -5.0f);
+    gl4duScalef(5.0f, 5.0f, 0.1f);
+    gl4duSendMatrices();
+    gl4dgDraw(_quadId);
     /* Draw the ball */
     gl4duBindMatrix("model");
     gl4duLoadIdentityf();
     gl4duTranslatef(0.0f, ballY, 0.0f);
     gl4duScalef(0.5f, 0.5f, 0.5f);
+    glEnable(GL_CULL_FACE);
 
-    /* Activate shader program */
-    glUseProgram(_pId);
-
-    /* Set up light position for moving light */
-    GLfloat lightPos[4] = {3.0f * sinf(t), 2.0f, 3.0f * cosf(t), 1.0f};
-    GLfloat ballColor[4] = {0.8f, 0.2f, 0.2f, 1.0f};    /* Red ball */
-    //GLfloat lightColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};   /* Slightly warm white light */
-    GLfloat ambientColor[4] = {0.1f, 0.1f, 0.1f, 1.0f}; /* Dark blue ambient */
-    GLfloat lightColor[4] = {1.2f, 1.2f, 1.2f, 1.0f};   /* Lumière plus intense (valeurs > 1 pour HDR) */
-    GLfloat shininess = 64.0f; // Valeur de brillance (plus c'est élevé, plus le reflet est concentré)
-    
     /* Send matrices to the shader */
     gl4duSendMatrices();
 
-    /* Send colors and light position to the shader */
+    // envoie des truc au shader
     glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, ballColor);
     glUniform4fv(glGetUniformLocation(_pId, "lightColor"), 1, lightColor);
     glUniform4fv(glGetUniformLocation(_pId, "lightPosition"), 1, lightPos);
     glUniform4fv(glGetUniformLocation(_pId, "ambientColor"), 1, ambientColor);
     glUniform1f(glGetUniformLocation(_pId, "shininess"), shininess);
-    
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+    //// Configurer la lumière directionnelle émise par ce mur
+    //glUniform1i(glGetUniformLocation(_pId, "useSecondLight"), 1);
+    //// Direction: de droite à gauche (-1,0,0)
+//
+    //glUniform4fv(glGetUniformLocation(_pId, "secondLightDirection"), 1, directionalLightDir);
 
-    /* Draw the sphere */
+    // dessine la sphère
     gl4dgDraw(_sphereId);
 
     /* Draw the floor as a scaled quad */
     gl4duLoadIdentityf();
-    gl4duTranslatef(0.0f, floorY, 0.0f);
-    gl4duScalef(5.0f, 0.1f, 5.0f);
-    gl4duRotatef(90.0f, 1.0f, 0.0f, 0.0f);
+    // Faire tourner la balle lumineuse autour de la scène
+    gl4duTranslatef(lightBallX, lightBallY, lightBallZ);
+    gl4duScalef(0.2f, 0.2f, 0.2f); // Une balle plus petite
 
-    /* Send updated matrix */
+    // Mettre à jour la position de la lumière pour qu'elle suive la balle émissive
+    lightPos[0] = lightBallX;
+    lightPos[1] = lightBallY;
+    lightPos[2] = lightBallZ;
+    lightPos[3] = 1.0f;
+
     gl4duSendMatrices();
+    // Couleur jaune-orangé pour la balle lumineuse
+    GLfloat lightBallColor[4] = {1.0f, 0.9f, 0.6f, 4.0f};
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, lightBallColor);
+    glUniform4fv(glGetUniformLocation(_pId, "lightPosition"), 1, lightPos);
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1); // Cette balle est émissive
+    int lightType = 1;                                        // 1 = positional (par défaut), 0 = directional
+    glUniform1i(glGetUniformLocation(_pId, "lightType"), lightType);
 
-    /* Update floor color - dark gray */
-    GLfloat floorColor[4] = {0.3f, 0.3f, 0.3f, 1.0f};
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, floorColor);
-    glDisable(GL_CULL_FACE);
-    /* Draw floor */
-    gl4dgDraw(_quadId);
-    glEnable(GL_CULL_FACE);
+    // Dessiner la balle lumineuse
+    gl4dgDraw(_sphereId2);
+
+    // 6. Back wall
+    // gl4duLoadIdentityf();
+    // gl4duTranslatef(0.0f, floorY + 2.5f, -5.0f);
+    // gl4duScalef(5.0f, 5.0f, 0.1f);
+    // gl4duSendMatrices();
+    // gl4dgDraw(_quadId);
+
+    teste += 0.05f;
+    // printf("test: %f\n", teste);
+    /* PHASE 2: Rendu du post-traitement à l'écran */
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(_postProcessProgramId);
+
+    /* Activer la texture générée */
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _texId);
+    glUniform1i(glGetUniformLocation(_postProcessProgramId, "screenTexture"), 0);
+
+    /* Paramètres optionnels pour les effets */
+    glUniform1i(glGetUniformLocation(_postProcessProgramId, "effect"), effets);
+    glUniform1f(glGetUniformLocation(_postProcessProgramId, "time"), t);
+    glUniform2f(glGetUniformLocation(_postProcessProgramId, "resolution"), _wW, _wH);
+
+    /* Dessiner un quad plein écran */
+    gl4dgDraw(_screenQuadId);
+    /* Update effect every second */
+    static double lastEffectChange = 0.0;
+    double currentTime = gl4dGetElapsedTime() / 1000.0;
+
+    if (currentTime - lastEffectChange >= 1.0)
+    { /* Check if 1 second has passed */
+        // effets = (effets + 1) % 5;  /* Increment and cycle from 0 to 4 */
+        lastEffectChange = currentTime;
+    }
+    effets = 5;
     /* Disable shader */
     glUseProgram(0);
 }
