@@ -179,13 +179,16 @@ void draw(void)
 
     /* Set up light position for moving light */
     GLfloat lightPos[4] = {3.0f * sinf(t * 0.5f), 1 + 0.50f * sinf(t), 3.0f * cosf(t), 1.0f};
-    
-    GLfloat ambientColor[4] = {0.1f, 0.1f, 0.1f, 1.0f}; /* Dark blue ambient */
-    GLfloat lightColor[4] = {1.2f, 1.2f, 1.2f, 1.0f};   /* Lumière plus intense (valeurs > 1 pour HDR) */
+    GLfloat lightColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};   /* Lumière plus intense (valeurs > 1 pour HDR) */
 
-    GLfloat light2couleur_obj[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
+    GLfloat light2couleur_obj[4] = {1.0f, 0.1f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
     GLfloat light2direction[4] = {1.0f, 0.0f, 0.0f, 0.0f};
     GLfloat light2couleur[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
+    
+    GLfloat screenX, screenY;
+
+    screenX = (lightPos[0] + 5.0f) / 10.0f;
+    screenY = (lightPos[1] + 5.0f) / 10.0f;
 
     GLfloat light3couleur_obj[4] = {0.8f, 0.8f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
     GLfloat light3direction[4] = {0.0f, -1.0f, 0.0f, 0.0f};
@@ -288,6 +291,7 @@ void draw(void)
     gl4duSendMatrices();
 
     //la balle de base
+    GLfloat ambientColor[4] = {0.1f, 0.1f, 0.1f, 1.0f}; /* Dark blue ambient */
     GLfloat ballColor[4] = {0.8f, 0.2f, 0.2f, 1.0f};    /* Red ball */
     GLfloat shininess = 64.0f;                          // Valeur de brillance (plus c'est élevé, plus le reflet est concentré)
 
@@ -340,6 +344,26 @@ void draw(void)
 
     glUseProgram(_postProcessProgramId);
 
+    /*
+    //un tableau de positions si on veut plusieurs lumières
+GLfloat lightPosArray[6]; // 3 lumières x 2 coordonnées (x,y)
+
+// Première lumière (la boule mobile)
+lightPosArray[0] = (lightPos[0] + 5.0f) / 10.0f; // X
+lightPosArray[1] = (lightPos[1] + 5.0f) / 10.0f; // Y
+
+// Deuxième lumière (fixe)
+lightPosArray[2] = 0.1f; // X
+lightPosArray[3] = 0.7f; // Y
+
+// Troisième lumière (mobile)
+lightPosArray[4] = 0.5f + 0.3f * sinf(t); // X
+lightPosArray[5] = 0.2f; // Y
+
+*/
+    int numLights = 1;
+    glUniform1i(glGetUniformLocation(_postProcessProgramId, "numLights"), numLights);
+    glUniform2f(glGetUniformLocation(_postProcessProgramId, "lightBallPosition"), screenX, screenY);
     /* Activer la texture générée */
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texId);
@@ -361,7 +385,7 @@ void draw(void)
         // effets = (effets + 1) % 5;  /* Increment and cycle from 0 to 4 */
         lastEffectChange = currentTime;
     }
-    effets = 5;
+    effets = 6;
     /* Disable shader */
     glUseProgram(0);
 }

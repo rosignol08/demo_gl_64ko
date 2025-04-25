@@ -336,7 +336,7 @@ void draw(void)
     /* Configurer la sphère pour le ciel */
     gl4duBindMatrix("modelMatrix");
     gl4duLoadIdentityf();
-    gl4duScalef(5.0f, 5.0f, 5.0f);
+    gl4duScalef(15.0f, 15.0f, 15.0f);
     gl4duSendMatrices();
 
     /* Désactiver le culling pour voir l'intérieur de la sphère */

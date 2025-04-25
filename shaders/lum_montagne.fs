@@ -148,7 +148,7 @@ float rug2(void) {
   float no = 0.0;
   // Animation basée sur le temps
   for(float freq = 1.0, amp = 1.0; freq < 8.0; freq *= 2.0, amp /= 2.0)
-    no += amp * noise(freq * zoom * vmPos.xyz + vec3(0.0, 0.0, temps));
+    no += amp * noise(freq * zoom * vmPos.xyz + vec3(0.0, 0.0, temps * 1)); //le * 1 c'est la vitesse de défilement des nuages
   
   // Augmenter progressivement la densité des nuages avec le temps
   float cloudCoverage = clamp(temps * 0.05, 0.1, 0.9); // Contrôle la couverture du ciel
