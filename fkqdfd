@@ -1,0 +1,122 @@
+#version 330
+
+uniform sampler2D colorTexture;     // Texture du rendu normal
+uniform sampler2D weightMapTexture; // Texture weight map (bloom)
+uniform vec2 resolution;            // Résolution de l'écran
+uniform float blurSize;             // Intensité du bloom
+// uniform vec3 neonColor;          // Ancienne couleur du néon/bloom - commenté
+// ou supprimé
+
+in vec2 texCoord;
+out vec4 fragColor;
+
+// Fonction améliorée pour le flou gaussien à large rayon
+vec3 gaussianBlur(sampler2D tex, vec2 uv, vec2 direction, float size) {
+    vec3 result = vec3(0.0);
+    float totalWeight = 0.0;
+
+    // Augmenter le nombre d'échantillons pour un flou plus large et doux
+    const int samples = 15; // Augmenté de 5 à 15
+
+    for (int i = -samples; i <= samples; i++) {
+        float offset = float(i);
+        // Gaussienne plus large
+        float weight = exp(-(offset * offset) / (2.0 * size * size));
+        vec2 samplePos = uv + direction * offset / resolution;
+        result += texture(tex, samplePos).rgb * weight;
+        totalWeight += weight;
+    }
+
+    return result / totalWeight;
+}
+
+void main() {
+    // Image de base (rendu normal)
+    vec4 baseColor = texture(colorTexture, texCoord);
+
+    // Récupération de la weight map avec couleur
+    vec4 weightMapColor = texture(weightMapTexture, texCoord);
+    float weight = weightMapColor.r; // Pour compatibilité avec le code existant
+
+    // Assombrir davantage l'image de base pour plus de contraste
+    baseColor *= 0.3; // Diminué de 0.5 à 0.3 pour plus de contraste
+
+    // Extraction des zones lumineuses avec seuil ajusté
+    float threshold =
+    0.15; // Seuil encore plus bas = encore plus de zones affectées
+    float brightPass = max(weight - threshold, 0.0) / (1.0 - threshold + 0.001);
+    brightPass = pow(brightPass,
+        0.8); // Exposant réduit pour augmenter la surface affectée
+
+    // APPLICATION DU BLOOM À PLUSIEURS PASSES ET INTENSITÉS
+
+    // 1. Petit flou (détails fins)
+    vec3 blur1 = vec3(0.0);
+    blur1 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(1.0, 0.0), blurSize * 0.8);
+    blur1 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(0.0, 1.0), blurSize * 0.8);
+    blur1 /= 2.0;
+
+    // 2. Flou moyen (halo intermédiaire)
+    vec3 blur2 = vec3(0.0);
+    blur2 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(1.0, 0.0), blurSize * 2.5);
+    blur2 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(0.0, 1.0), blurSize * 2.5);
+    blur2 /= 2.0;
+
+    // 3. Flou large (grand halo diffus)
+    vec3 blur3 = vec3(0.0);
+    blur3 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(1.0, 0.0), blurSize * 6.0);
+    blur3 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(0.0, 1.0), blurSize * 6.0);
+    blur3 /= 2.0;
+
+    // 4. Très grand flou (pour l'ambiance générale)
+    vec3 blur4 = vec3(0.0);
+    blur4 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(1.0, 0.0), blurSize * 12.0);
+    blur4 +=
+    gaussianBlur(weightMapTexture, texCoord, vec2(0.0, 1.0), blurSize * 12.0);
+    blur4 /= 2.0;
+
+    // Combiner les différentes passes de flou
+    vec3 bloomColor = blur1 * 0.4 + blur2 * 0.3 + blur3 * 0.2 + blur4 * 0.1;
+
+    // Appliquer une légère aberration chromatique pour un aspect plus réaliste
+    vec2 direction = (vec2(0.5) - texCoord) * 0.01 * blurSize;
+    vec3 rBloom = gaussianBlur(weightMapTexture, texCoord + direction,
+        vec2(1.0, 0.0), blurSize * 2.0)
+    .rgb;
+    vec3 bBloom = gaussianBlur(weightMapTexture, texCoord - direction,
+        vec2(0.0, 1.0), blurSize * 2.0)
+    .rgb;
+
+    // Mélanger avec l'aberration chromatique
+    bloomColor.r = mix(bloomColor.r, rBloom.r, 0.2);
+    bloomColor.b = mix(bloomColor.b, bBloom.b, 0.2);
+
+    // Amplifier drastiquement l'intensité du bloom
+    float glowFactor =
+    88.0; // Fortement augmenté pour un effet beaucoup plus prononcé
+    vec3 bloomFinal = bloomColor * weightMapColor.rgb * glowFactor;
+
+    // Garder une référence à l'uniform neonColor pour le flare
+    // Puisque vous compilerez sans neonColor, utilisez la couleur de la weight
+    // map ici aussi
+    vec3 flareColor = weightMapColor.rgb;
+
+    // Ajouter un léger flare (éblouissement) autour des zones les plus lumineuses
+    float flare = pow(brightPass, 2.0) * 0.4;
+
+    // Combinaison finale avec plus d'impact sur les couleurs
+    vec3 finalColor = baseColor.rgb + bloomFinal * (brightPass * 0.8 + 0.2) +
+    flare * flareColor;
+
+    // Correction gamma pour adoucir les bords du bloom
+    finalColor = pow(finalColor, vec3(0.75));
+
+    fragColor = vec4(finalColor, 1.0);
+}

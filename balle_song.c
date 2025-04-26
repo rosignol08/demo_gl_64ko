@@ -32,13 +32,7 @@
  static GLuint _depthTexId = 0;
  static GLuint _postProcessProgramId = 0;
  static GLuint _screenQuadId = 0;
-
  static GLuint _bloomtexture = 0;
-static GLuint _blurprogramId = 0;
-
-unsigned int pingpongFBO [2];
-unsigned int pingpongBuffer[2];
-
  int effets = 0;
  float teste = 0;
  
@@ -87,9 +81,6 @@ unsigned int pingpongBuffer[2];
      /* Créer le shader pour le post-processing */
      _postProcessProgramId = gl4duCreateProgram("<vs>shaders/post.vs", "<fs>shaders/post.fs", NULL);
 
-    /* Créer le shader pour le flou */
-    _blurprogramId = gl4duCreateProgram("<vs>shaders/blur.vs", "<fs>shaders/blur.fs", NULL);
- 
      /* Créer un quad plein écran pour le post-processing */
      _screenQuadId = gl4dgGenQuadf();
  
@@ -112,42 +103,25 @@ unsigned int pingpongBuffer[2];
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _depthTexId, 0);
- 
+    // Créer la texture de bloom
+    glGenTextures(1, &_bloomtexture);
+    glBindTexture(GL_TEXTURE_2D, _bloomtexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _wW, _wH, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Attacher au FBO comme COLOR_ATTACHMENT1
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, _bloomtexture, 0);
+
+    // Dire à OpenGL qu'on utilise deux sorties de couleur
+    unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, attachments);
      /* Vérifier que le FBO est complet */
      if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
      {
          fprintf(stderr, "Framebuffer incomplet!\n");
      }
-     //pour le bloom
-        glGenTextures(1, &_bloomtexture);
-        glBindTexture(GL_TEXTURE_2D, _bloomtexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _wW, _wH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, _bloomtexture, 0);
-        unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-        glDrawBuffers(2, attachments);
-    //les pingpong fbo
-    glGenFramebuffers(2, pingpongFBO);
-    glGenTextures(2, pingpongBuffer);
-    for (unsigned int i = 0; i < 2; i++){
-        glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
-        glBindTexture(GL_TEXTURE_2D, pingpongBuffer[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _wW, _wH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongBuffer[i], 0);
-
-        GLenum fbostatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (fbostatus != GL_FRAMEBUFFER_COMPLETE)
-        {
-            fprintf(stderr, "Framebuffer incomplet!\n");
-        }
-    }
+     
      /* Revenir au framebuffer par défaut */
      glBindFramebuffer(GL_FRAMEBUFFER, 0);
  
@@ -236,6 +210,10 @@ unsigned int pingpongBuffer[2];
      /* Clear the screen */
      glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+// Important : spécifier les deux buffers de sortie
+unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+glDrawBuffers(2, attachments);
      glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
      /* Activate shader program */
      glUseProgram(_pId);
@@ -376,36 +354,7 @@ unsigned int pingpongBuffer[2];
      // gl4dgDraw(_quadId);
  
      teste += 0.05f;
-//envoie de la texture de flou
-glUseProgram(_blurprogramId);
-glUniform1i(glGetUniformLocation(_blurprogramId, "screenTexture"), 0);
-
-bool horizontal = true, first_iteration = true;
-int amount = 10;
-for (unsigned int i = 0; i < amount; i++){
-    glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    glUniform1i(glGetUniformLocation(_blurprogramId, "horizontal"), horizontal);
-    
-    // Première itération: utiliser la texture bloom
-    // Autres itérations: utiliser le résultat de la passe précédente
-    if (first_iteration){
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, _bloomtexture);
-        glUniform1i(glGetUniformLocation(_blurprogramId, "screenTexture"), 0);
-        first_iteration = false;
-    } else {
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
-        glUniform1i(glGetUniformLocation(_blurprogramId, "screenTexture"), 0);
-    }
-    
-    // DESSINER LE QUAD POUR CETTE PASSE - CRUCIAL!
-    gl4dgDraw(_screenQuadId);
-    
-    horizontal = !horizontal;
-}glBindFramebuffer(GL_FRAMEBUFFER, 0);
+glBindFramebuffer(GL_FRAMEBUFFER, 0);
 glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -414,9 +363,10 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 glActiveTexture(GL_TEXTURE0);
 glBindTexture(GL_TEXTURE_2D, _texId);  // Texture de la scène originale
 glUniform1i(glGetUniformLocation(_postProcessProgramId, "screenTexture"), 0);
-
+//pour le bloom
+// Ajouter ces lignes:
 glActiveTexture(GL_TEXTURE1);
-glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);  // Texture du bloom flou
+glBindTexture(GL_TEXTURE_2D, _bloomtexture);
 glUniform1i(glGetUniformLocation(_postProcessProgramId, "bloomTexture"), 1);
 
      int numLights = 1;

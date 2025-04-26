@@ -4,6 +4,11 @@ in vec3 normal;
 in vec3 fragPos;
 in vec2 texCoord;
 
+//deux outputs
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 BrightColor;
+
+
 uniform vec4 ballColor;
 uniform vec4 lightColor;
 uniform vec4 lightPosition;
@@ -22,7 +27,7 @@ uniform vec4 thirdLightPosition;      // Position/Direction de la lumière (W=1 
 uniform int useThirdLight;            // 1 pour activer cette lumière, 0 sinon
 uniform int thirdLightType;           // 0 = directional, 1 = positional
 
-out vec4 fragColor;
+//out vec4 fragColor;
 
 void main() {
   // Normalize the normal vector
@@ -145,11 +150,27 @@ void main() {
   if (isEmissive == 1) {
     // Si l'objet est émissif, ignorer l'éclairage normal 
     // et utiliser directement sa couleur comme source lumineuse
-    fragColor = vec4(vec3(ballColor) * 1.5, ballColor.a);
+    FragColor = vec4(vec3(ballColor) * 1.5, ballColor.a);
   }
   else {
     // Code normal pour les objets non-émissifs
     vec3 result = (ambient + diffuse + specular + rimLight + secondaryLightContribution + thirdLightContribution) * vec3(ballColor);
-    fragColor = vec4(result, ballColor.a);
+    FragColor = vec4(result, ballColor.a);
   }
+  // Extraction des parties brillantes pour le bloom
+vec3 finalColor = FragColor.rgb;
+if(isEmissive == 1) {
+    // Pour les objets émissifs, utiliser une valeur plus intense pour le bloom
+    BrightColor = vec4(finalColor * 3.0, 1.0);  // Amplification pour les objets émissifs
+} else {
+    // Pour les objets non émissifs, appliquer un seuil de luminosité
+    float brightness = dot(finalColor, vec3(0.2126, 0.7152, 0.0722));
+    if(brightness > 0.8) {
+        // Uniquement les parties très lumineuses (spéculaires) des objets non-émissifs
+        BrightColor = vec4(finalColor, 1.0);
+    } else {
+        // Aucune contribution au bloom pour les parties sombres
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+}
 }
