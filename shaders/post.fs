@@ -8,7 +8,7 @@ uniform float time;
 uniform vec2 resolution;
 uniform int effect; // 0=normal, 1=noir et blanc, 2=vignette, 3=aberration chromatique, 4=scanlines, 5=bloom, 6=flare et bloom
 
-uniform vec2 lightPositions[3]; // Jusqu'à 3 positions de flares
+uniform vec2 flarePosition1; // Jusqu'à 3 positions de flares
 uniform int numLights; // Nombre réel de lumières à utiliser
 
 //const int effect = 2;
@@ -50,36 +50,37 @@ vec4 scanlines(vec4 color, vec2 texCoord) {
     return color * scanline;
 }
 
-//bloom
+// Fonction équivalente à bloomTile mais adaptée à notre cas
+// Applique différents niveaux de flou avec des décalages
+vec3 bloomLevel(sampler2D tex, float lod, vec2 offset, float threshold) {
+    float scale = exp2(-lod);
+    vec2 uv = texCoords * scale + offset;
+    return extractBright(texture(tex, uv).rgb, threshold);
+}
+
+// Bloom réaliste avec plusieurs niveaux de flou
 vec4 bloomImproved(sampler2D tex, vec2 texCoord, float threshold) {
     vec4 color = texture(tex, texCoord);
+    vec3 bloom = vec3(0.0);
+    // Combine plusieurs niveaux de bloom avec des intensités et offsets différents
+    bloom += bloomLevel(tex, 2.0, vec2(0.0, 0.0), threshold) * 1.0;
+    bloom += bloomLevel(tex, 3.0, vec2(0.3, 0.0), threshold) * 1.3;
+    bloom += bloomLevel(tex, 4.0, vec2(0.0, 0.3), threshold) * 1.6;
+    bloom += bloomLevel(tex, 5.0, vec2(0.1, 0.3), threshold) * 1.9;
+    bloom += bloomLevel(tex, 6.0, vec2(0.2, 0.3), threshold) * 2.2;
     
-    // Extraire seulement les parties brillantes
-    vec3 brightPass = extractBright(color.rgb, threshold);
+    // Tone mapping inspiré de Reinhard
+    vec3 result = color.rgb;
     
-    // Application d'un flou gaussien
-    vec3 blur = vec3(0.0);
-    float blurSize = 0.006; // Taille du flou augmentée
-    float total = 0.0;
+    // Ajoute le bloom à l'image originale
+    result += bloom * 1.5; // Intensité ajustable
     
-    // Flou gaussien 9x9 avec poids variables selon la distance
-    for(float x = -4.0; x <= 4.0; x++) {
-        for(float y = -4.0; y <= 4.0; y++) {
-            // Poids gaussien qui diminue avec la distance
-            float weight = exp(-(x*x + y*y) / 8.0);
-            vec2 offset = vec2(x, y) * blurSize;
-            blur += texture(tex, texCoord + offset).rgb * weight;
-            total += weight;
-        }
-    }
+    // Tone mapping simple pour éviter la saturation
+    float luminance = dot(result, vec3(0.2126, 0.7152, 0.0722));
+    vec3 tonemapped = result / (result + 1.0);
+    result = mix(result / (luminance + 1.0), tonemapped, tonemapped);
     
-    blur /= total;
-    
-    // Appliquer l'effet bloom en ajoutant le flou des parties brillantes
-    vec3 bloomEffect = blur * 1.0; // Intensité du bloom
-    
-    // Combiner avec l'original, en préservant les couleurs
-    return vec4(color.rgb + bloomEffect * brightPass, color.a);
+    return vec4(result, color.a);
 }
 
 
@@ -99,32 +100,26 @@ vec3 simpleFlare(vec2 uv, vec2 pos) {
     return (halo + rays) * vec3(1.0, 0.7, 0.3);
 }
 
-// Fonction pour créer des flares à partir de plusieurs sources lumineuses
-vec4 multiLensFlare(sampler2D tex, vec2 texCoord) {
+// Nouvelle fonction qui utilise la position passée directement
+vec4 lensFlareWithPosition(sampler2D tex, vec2 texCoord) {
     // Image originale
     vec4 color = texture(tex, texCoord);
     
     // Coordonnées normalisées centrées
     vec2 uv = texCoord - 0.5;
-    uv.x *= resolution.x / resolution.y; //correction de l'aspect ratio
+    uv.x *= resolution.x / resolution.y; // Correction aspect ratio
     
-    // Initialiser le flare total
-    vec3 flare = vec3(0.0);
+    // Position du flare (convertie de coordonnées [0-1] à centrées [-0.5,0.5])
+    vec2 flarePos = flarePosition1 - 0.5;
+    flarePos.x *= resolution.x / resolution.y; // Correction aspect ratio
     
-    // Boucler sur toutes les lumières actives
-    for (int i = 0; i < numLights; i++) {
-        vec2 pos = lightPositions[i] - 0.5;
-        pos.x *= resolution.x / resolution.y;
-        flare += simpleFlare(uv, pos);
-    }
-    
-    // Intensité globale des flares
-    flare *= 1.5; //l'intensité des flares
+    // Créer le flare
+    vec3 flare = simpleFlare(uv, flarePos) * 2.0; // Intensité x2
     
     // Ajouter le bloom simple
     vec3 brightPass = extractBright(color.rgb, 0.6);
     
-    // Retourner l'image originale avec les flares
+    // Retourner l'image originale avec le flare
     return vec4(color.rgb + flare + brightPass * 0.5, color.a);
 }
 
@@ -149,7 +144,7 @@ void main() {
     }
     else if (effect == 5) {
         // Bloom amélioré
-        fragColor = bloomImproved(screenTexture, texCoords, 0.6);
+        fragColor = bloomImproved(screenTexture, texCoords, 1.0);
     }
     else if (effect == 6) {
         // Bloom + Lens Flare combinés
