@@ -1,9 +1,13 @@
 #version 330 core
 
 in vec2 texCoords;
-out vec4 fragColor;
+//out vec4 fragColor;
+//out
+layout(location = 0) out vec4 fragColor; // Couleur finale du fragment
+layout(location = 1) out vec4 BrightColor; // Couleur pour le bloom
 
 uniform sampler2D screenTexture;
+uniform sampler2D bloomTexture; // Texture pour le bloom
 uniform float time;
 uniform vec2 resolution;
 uniform int effect; // 0=normal, 1=noir et blanc, 2=vignette, 3=aberration chromatique, 4=scanlines, 5=bloom, 6=flare et bloom
@@ -151,7 +155,17 @@ void main() {
         fragColor = lensFlareWithPosition(screenTexture, texCoords);
     }
     else {
-        // Pas d'effet
         fragColor = texColor;
+        // Pas d'effet
+        if (fragColor.r > 0.5){
+            fragColor.r *= 5.0;
+        }
+        float brightness = dot(texColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+        if (brightness > 0.0){
+            BrightColor = vec4(texColor.rgb, 1.0);
+        }
+        else{
+            BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+        }
     }
 }

@@ -9,22 +9,20 @@ uniform float exposure = 1.0;
 
 // Dans combine.fs - Améliore le rendu HDR
 void main() {
-    // Échantillonner les textures
     vec3 hdr = texture(sceneTexture, TexCoords).rgb;
     vec3 bloom = texture(blurredTexture, TexCoords).rgb;
     
-    // Accentuation du bloom (amplification)
-    bloom = bloom * 1.5; // Boost supplémentaire
+    // Amplification du bloom pour plus d'effet
+    bloom *= 1.5; // Pré-amplification
     
-    // Mélange additif avec intensité
+    // Mélange avec intensité
     vec3 result = hdr + bloom * bloomIntensity;
     
-    // Tone mapping - modification importante
+    // Tone mapping amélioré
     vec3 mapped = vec3(1.0) - exp(-result * exposure);
     
-    // Ajustement des couleurs pour plus d'éclat
-    mapped = pow(mapped, vec3(0.9)); // Gamma correction légère
+    // Gamma correction
+    mapped = pow(mapped, vec3(1.0 / 2.2));
     
-    // Sortie
     FragColor = vec4(mapped, 1.0);
 }

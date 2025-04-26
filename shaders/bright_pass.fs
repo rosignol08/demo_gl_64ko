@@ -10,7 +10,7 @@ void main() {
     
     // Capture toutes les couleurs suffisamment lumineuses
     // Possible aussi d'utiliser max(max(color.r, color.g), color.b) > 1.0
-    if (brightness > 0.7)
+    if (brightness > 0.0)
         FragColor = vec4(color, 1.0);
     else
         FragColor = vec4(0.0, 0.0, 0.0, 1.0);
