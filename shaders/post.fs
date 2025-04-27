@@ -167,66 +167,38 @@ void main() {
         }
         fragColor = color;
     }
-    else if (effect == 8) { // Bloom in fog
-        vec4 baseColor = texture(screenTexture, texCoords);
-        vec4 brightParts = texture(bloomTexture, texCoords);
-        // Extract brightness for bloom effect
-        vec3 brightColor = brightParts.rgb;
-//
-//        // Apply Gaussian blur to the bright parts
-//        vec3 blurredBright = vec3(0.0);
-//        float blurWeight = 0.0;
-//        float blurRadius = 10.0; // Adjust blur strength
-//
-//        // Apply 2D Gaussian blur
-//        for (int x = -4; x <= 4; x++) {
-//            for (int y = -4; y <= 4; y++) {
-//                float weight = exp(-(x*x + y*y) / (2.0 * blurRadius * blurRadius));
-//                vec2 offset = vec2(x, y) / resolution;
-//                blurredBright += texture(bloomTexture, texCoords + offset).rgb * weight;
-//                blurWeight += weight;
-//            }
-//        }
-//        blurredBright /= blurWeight;
-//
-//        // Use the blurred bright parts for the bloom effect
-//        brightParts = vec4(blurredBright, 1.0);
+    else if (effect == 8) { // Optimized Bloom
+    vec4 baseColor = texture(screenTexture, texCoords);
 
-        vec3 bloomTotal = vec3(0.0);
-        float totalWeight = 0.0;
+    vec3 bloomTotal = vec3(0.0);
+    float totalWeight = 0.0;
 
-        float bloomStrength = 2.5;
-        float bloomRadius = 8.0;
+    float bloomStrength = 1.5;
+    float bloomRadius = 10.0; // un peu plus large car moins d'échantillons
 
-       for (int x = -7; x <= 7; x++) {
+    for (int x = -7; x <= 7; x++) {
         for (int y = -7; y <= 7; y++) {
             float dist = length(vec2(x, y));
             if (dist > 7.0) continue;
 
-            float weight = exp(-dist * dist * 0.02); // plus large, moins serré
+            float weight = exp(-dist * dist * 0.05); // un peu plus serré pour compenser
             vec2 offset = vec2(x, y) * bloomRadius / resolution;
 
             bloomTotal += texture(bloomTexture, texCoords + offset).rgb * weight;
             totalWeight += weight;
-            }
         }
-
-
-        bloomTotal /= totalWeight;
-        bloomTotal *= bloomStrength;
-
-        // Optional fog-like diffusion based on distance from center:
-        //vec2 lightCenter = vec2(0.5, 0.5);
-        //float distToCenter = length(texCoords - lightCenter);
-        //bloomTotal *= exp(-distToCenter * distToCenter * 2.0);
-        
-
-        vec3 result = baseColor.rgb + bloomTotal;
-        result = result / (result + vec3(1.0)); // Simple tonemap
-        fragColor = vec4(result, 1.0);
-
-        BrightColor = vec4(0.0);
     }
+
+    bloomTotal /= totalWeight;
+    bloomTotal *= bloomStrength;
+
+    vec3 result = baseColor.rgb + bloomTotal;
+    result = result / (result + vec3(1.0)); // Simple tonemap
+    fragColor = vec4(result, 1.0);
+
+    BrightColor = vec4(0.0);
+}
+
 
     //else if (effect == 9) { //marche pas mais je met de coté
     //    fragColor = texColor;

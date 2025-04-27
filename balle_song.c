@@ -31,6 +31,13 @@
  static GLuint _texId = 0;
  static GLuint _depthTexId = 0;
  static GLuint _postProcessProgramId = 0;
+ static GLuint _fboBlurVertical = 0;
+ static GLuint blurVerticalTexture = 0;
+ 
+ static GLuint _fboBlurHorizontal = 0;
+ static GLuint _postProcessProgramId2 = 0;
+ static GLuint blurHorizontalTexture = 0;
+
  static GLuint _screenQuadId = 0;
  static GLuint _bloomtexture = 0;
  int effets = 0;
@@ -49,6 +56,11 @@
              glDeleteFramebuffers(1, &_fboId);
              _fboId = 0;
          }
+            if (_fboBlurHorizontal)
+            {
+                glDeleteFramebuffers(1, &_fboBlurHorizontal);
+                _fboBlurHorizontal = 0;
+            }
  
          if (_texId)
          {
@@ -80,6 +92,9 @@
  
      /* Créer le shader pour le post-processing */
      _postProcessProgramId = gl4duCreateProgram("<vs>shaders/post.vs", "<fs>shaders/post.fs", NULL);
+        _postProcessProgramId2 = gl4duCreateProgram("<vs>shaders/post.vs", "<fs>shaders/post2.fs", NULL);
+
+
 
      /* Créer un quad plein écran pour le post-processing */
      _screenQuadId = gl4dgGenQuadf();
@@ -112,18 +127,63 @@
 
     // Attacher au FBO comme COLOR_ATTACHMENT1
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, _bloomtexture, 0);
+    
+    // Créer le FBO pour le flou vertical
+glGenFramebuffers(1, &_fboBlurVertical);
+glBindFramebuffer(GL_FRAMEBUFFER, _fboBlurVertical);
 
-    // Dire à OpenGL qu'on utilise deux sorties de couleur
+glGenTextures(1, &blurVerticalTexture);
+glBindTexture(GL_TEXTURE_2D, blurVerticalTexture);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _wW, _wH, 0, GL_RGBA, GL_FLOAT, NULL);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, blurVerticalTexture, 0);
+
+glBindFramebuffer(GL_FRAMEBUFFER, _fboBlurVertical);
+glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    //le FBO pour le flou
+    glGenFramebuffers(1, &_fboBlurHorizontal);
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboBlurHorizontal);
+
+    // Texture pour stocker le résultat du flou horizontal
+    glGenTextures(1, &blurHorizontalTexture);
+    glBindTexture(GL_TEXTURE_2D, blurHorizontalTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _wW, _wH, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, blurHorizontalTexture, 0);
+
+    // Après avoir créé _fboBlurHorizontal
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboBlurHorizontal);
+    // Utilisez un seul buffer de sortie
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    // Revenez au FBO principal pour configurer les deux attachements
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
     unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
     glDrawBuffers(2, attachments);
-     /* Vérifier que le FBO est complet */
-     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-     {
-         fprintf(stderr, "Framebuffer incomplet!\n");
-     }
-     
-     /* Revenir au framebuffer par défaut */
-     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Vérifier que le FBO est complet
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "Framebuffer principal incomplet!\n");
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDrawBuffer(GL_BACK);
+    glViewport(0, 0, _wW, _wH);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboBlurHorizontal);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "Framebuffer flou horizontal incomplet!\n");
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Revenir à l'écran
+    glDrawBuffer(GL_BACK); // ou GL_FRONT si tu n'as pas de double buffering
+
+     glViewport(0, 0, _wW, _wH);
+
  
      /* Create a sphere for the ball */
      _sphereId = gl4dgGenSpheref(30, 30);
@@ -163,7 +223,18 @@
          glBindTexture(GL_TEXTURE_2D, _depthTexId);
          glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, _wW, _wH, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
      }
- 
+     if (_bloomtexture) {
+        glBindTexture(GL_TEXTURE_2D, _bloomtexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _wW, _wH, 0, GL_RGBA, GL_FLOAT, NULL);
+    }
+    if (blurHorizontalTexture) {
+        glBindTexture(GL_TEXTURE_2D, blurHorizontalTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _wW, _wH, 0, GL_RGBA, GL_FLOAT, NULL);
+    }
+    if (blurVerticalTexture) {
+        glBindTexture(GL_TEXTURE_2D, blurVerticalTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _wW, _wH, 0, GL_RGBA, GL_FLOAT, NULL);
+    }
      glViewport(0, 0, _wW, _wH);
      ratio = _wW / ((GLfloat)_wH);
  
@@ -209,12 +280,12 @@
      
      /* Clear the screen */
      glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
+    glViewport(0, 0, _wW, _wH);
      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-// Important : spécifier les deux buffers de sortie
-unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-glDrawBuffers(2, attachments);
-     glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+    // Important : spécifier les deux buffers de sortie
+    unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, attachments);
      /* Activate shader program */
      glUseProgram(_pId);
      /* Set up camera position */
@@ -344,17 +415,44 @@ glDrawBuffers(2, attachments);
      glUniform1i(glGetUniformLocation(_pId, "lightType"), 1);
  
      // Dessiner la balle lumineuse
-     gl4dgDraw(_sphereId2);
- 
-     // 6. Back wall
-     // gl4duLoadIdentityf();
-     // gl4duTranslatef(0.0f, floorY + 2.5f, -5.0f);
-     // gl4duScalef(5.0f, 5.0f, 0.1f);
-     // gl4duSendMatrices();
-     // gl4dgDraw(_quadId);
- 
+     gl4dgDraw(_sphereId2); 
      teste += 0.05f;
+
+     // Render vers FBO intermédiaire pour flou horizontal
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboBlurHorizontal);
+    glViewport(0, 0, _wW, _wH);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(_postProcessProgramId2);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _bloomtexture); // bloom brut
+
+    glUniform1i(glGetUniformLocation(_postProcessProgramId2, "bloomTexture"), 0);
+    glUniform2f(glGetUniformLocation(_postProcessProgramId2, "resolution"),(float)_wW, (float)_wH);
+    glUniform1i(glGetUniformLocation(_postProcessProgramId2, "horizontal"), 1); // <-- AJOUTER CET UNIFORM
+
+    // draw full screen quad ici
+    gl4dgDraw(_screenQuadId);
+    glBindFramebuffer(GL_FRAMEBUFFER, _fboBlurVertical);
+    glViewport(0, 0, _wW, _wH);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    glUseProgram(_postProcessProgramId2); // même shader, mais vertical
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, blurVerticalTexture);
+    glUniform1i(glGetUniformLocation(_postProcessProgramId2, "bloomTexture"), 0);
+    glUniform2f(glGetUniformLocation(_postProcessProgramId2, "resolution"), (float)_wW, (float)_wH);
+    glUniform1i(glGetUniformLocation(_postProcessProgramId2, "horizontal"), 0); // <-- AJOUTER CET UNIFORM
+    
+    gl4dgDraw(_screenQuadId);
+
 glBindFramebuffer(GL_FRAMEBUFFER, 0);
+glDrawBuffer(GL_BACK);
+    glViewport(0, 0, _wW, _wH);
+    
 glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -368,6 +466,7 @@ glUniform1i(glGetUniformLocation(_postProcessProgramId, "screenTexture"), 0);
 glActiveTexture(GL_TEXTURE1);
 glBindTexture(GL_TEXTURE_2D, _bloomtexture);
 glUniform1i(glGetUniformLocation(_postProcessProgramId, "bloomTexture"), 1);
+glUniform2f(glGetUniformLocation(_postProcessProgramId, "resolution"), _wW, _wH);
 
      int numLights = 1;
      glUniform1i(glGetUniformLocation(_postProcessProgramId, "numLights"), numLights);
@@ -377,12 +476,8 @@ glUniform1i(glGetUniformLocation(_postProcessProgramId, "bloomTexture"), 1);
      /* Paramètres optionnels pour les effets */
      glUniform1i(glGetUniformLocation(_postProcessProgramId, "effect"), effets);
      glUniform1f(glGetUniformLocation(_postProcessProgramId, "time"), t);
-     glUniform2f(glGetUniformLocation(_postProcessProgramId, "resolution"), _wW, _wH);
-    
      
-    /* Activer la texture générée */
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
+
      /* Dessiner un quad plein écran */
      gl4dgDraw(_screenQuadId);
      /* Update effect every second */
