@@ -173,15 +173,17 @@ void main() {
     vec3 bloomTotal = vec3(0.0);
     float totalWeight = 0.0;
 
-    float bloomStrength = 1.5;
-    float bloomRadius = 10.0; // un peu plus large car moins d'échantillons
+    float bloomStrength = 3.5;
+    float bloomRadius = 2.0; // un peu plus large car moins d'échantillons
 
-    for (int x = -7; x <= 7; x++) {
-        for (int y = -7; y <= 7; y++) {
+    for (int x = -15; x <= 15; x+= 1) {
+        for (int y = -15; y <= 15; y+= 1) {
             float dist = length(vec2(x, y));
-            if (dist > 7.0) continue;
+            if (dist > 15) continue;
 
-            float weight = exp(-dist * dist * 0.05); // un peu plus serré pour compenser
+            //float weight = exp(-dist * dist * 0.002); // un peu plus serré pour compenser
+                    float weight = 1.0 / (1.0 + dist * dist * 0.02);
+
             vec2 offset = vec2(x, y) * bloomRadius / resolution;
 
             bloomTotal += texture(bloomTexture, texCoords + offset).rgb * weight;

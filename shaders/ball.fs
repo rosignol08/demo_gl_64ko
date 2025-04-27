@@ -28,7 +28,46 @@ uniform int useThirdLight;            // 1 pour activer cette lumière, 0 sinon
 uniform int thirdLightType;           // 0 = directional, 1 = positional
 
 //out vec4 fragColor;
+// Uniforms for water effect
+uniform int utiliseWater;        // 1 pour activer l'effet d'eau, 0 sinon
+uniform float time;           // Pour l'animation des vagues
+uniform float waveStrength;   // Controls wave intensity
+uniform float waveSpeed;      // Controls wave speed
+uniform int isWater;          // Toggle water effect (1 = water, 0 = normal material)
 
+// Function to generate procedural waves
+vec3 applyWaves(vec3 position, vec3 normal) {
+  if (isWater != 1) return position;
+  
+  float frequency = 5.0;
+  float amplitude = waveStrength * 0.05;
+  
+  // Create several overlapping wave patterns
+  float wave1 = sin(frequency * position.x + time * waveSpeed) * 
+          cos(frequency * position.z + time * waveSpeed * 0.7) * amplitude;
+          
+  float wave2 = sin(frequency * 1.3 * position.z + time * waveSpeed * 0.8) * 
+          cos(frequency * 1.7 * position.x + time * waveSpeed * 1.1) * amplitude * 0.8;
+          
+  // Displace position based on waves
+  vec3 newPosition = position;
+  newPosition.y += wave1 + wave2;
+  
+  return newPosition;
+}
+
+// Calculate normal for the wavy surface
+vec3 calculateWaveNormal(vec3 pos) {
+  // Calculate derivative of the wave function in x and z directions
+  float epsilon = 0.01;
+  vec3 dx = applyWaves(pos + vec3(epsilon, 0.0, 0.0), vec3(0.0, 1.0, 0.0)) - 
+        applyWaves(pos - vec3(epsilon, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+  vec3 dz = applyWaves(pos + vec3(0.0, 0.0, epsilon), vec3(0.0, 1.0, 0.0)) - 
+        applyWaves(pos - vec3(0.0, 0.0, epsilon), vec3(0.0, 1.0, 0.0));
+  
+  // Cross product to find normal
+  return normalize(cross(dx, dz));
+}
 void main() {
   // Normalize the normal vector
   vec3 norm = normalize(normal);
@@ -153,13 +192,50 @@ void main() {
     FragColor = vec4(vec3(ballColor) * 1.5, ballColor.a);
   }
   else {
+    if(utiliseWater == 1) {
+      // Appliquer l'effet d'eau
+      vec3 wavyPos = applyWaves(fragPos, norm);
+      vec3 wavyNorm = calculateWaveNormal(wavyPos);
+      norm = normalize(wavyNorm);
+
+      // Paramètres de l'eau dynamique
+      float waterDepth = sin(time * 0.5) * 0.1 + 0.9; // Variation de profondeur
+      float waterRipple = sin(length(texCoord * 10.0) - time * 2.0) * 0.05; // Effet d'ondulation
+
+      // Calcul d'éclairage avec paramètres dynamiques
+      vec3 wavyLightDir = normalize(vec3(lightPosition) - wavyPos);
+      float wavyDiff = max(dot(norm, wavyLightDir), 0.0);
+      diffuse = wavyDiff * vec3(lightColor);
+
+      // Spécularité plus vive et variable
+      float wavySpec = pow(max(dot(norm, halfwayDir), 0.0), shininess * (2.0 + sin(time) * 1.0));
+      specular = (1.0 + waterRipple * 2.0) * wavySpec * vec3(lightColor);
+
+      diffuse *= attenuation;
+      specular *= attenuation;
+
+      // Effet de fresnel amélioré
+      float rim = 1.0 - max(dot(viewDir, norm), 0.0);
+      rim = pow(rim, 2.0 + sin(time * 0.7) * 1.0); // Fresnel variable dans le temps
+      rimLight = rim * vec3(lightColor) * (0.3 + sin(time * 1.3) * 0.1) * attenuation;
+
+      // Couleur d'eau dynamique
+      vec3 baseWaterColor = vec3(0.0, 0.5, 1.0);
+      vec3 waterColor = mix(baseWaterColor, vec3(0.0, 0.7, 0.8), sin(time * 0.3) * 0.5 + 0.5);
+      vec3 waterEffect = (ambient + diffuse * waterDepth + specular + rimLight) * waterColor;
+
+      // Transparence variable
+      float alpha = ballColor.a * (0.1 + waterRipple + rim * 0.2);
+      FragColor = vec4(waterEffect, alpha);
+    }else{
     // Code normal pour les objets non-émissifs
     vec3 result = (ambient + diffuse + specular + rimLight + secondaryLightContribution + thirdLightContribution) * vec3(ballColor);
     FragColor = vec4(result, ballColor.a);
+    }
   }
   // Extraction des parties brillantes pour le bloom
-vec3 finalColor = FragColor.rgb;
-if(isEmissive == 1) {
+  vec3 finalColor = FragColor.rgb;
+if (isEmissive == 1) {
     // Pour les objets émissifs, utiliser une valeur plus intense pour le bloom
     BrightColor = vec4(finalColor * 3.0, 1.0);  // Amplification pour les objets émissifs
 } else {

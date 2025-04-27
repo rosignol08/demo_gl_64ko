@@ -14,7 +14,7 @@ static void draw(void);
 static Sint16 _hauteurs[ECHANTILLONS];
 /*!\brief dimensions de la fenêtre */
 static int _wW = ECHANTILLONS, _wH = 256;
-
+float volume = 0.0f;
 /*!\brief id du screen à créer */
 static GLuint _screen = 0;
 
@@ -36,7 +36,9 @@ void basic_audio(int state) {
     Sint16 *s = (Sint16 *)ahGetAudioStream();
     if(len >= 2 * ECHANTILLONS)
       for(i = 0; i < ECHANTILLONS; i++)
-        _hauteurs[i] = _wH / 2 + (_wH / 2) * s[i] / ((1 << 15) - 1.0);
+        {_hauteurs[i] = _wH / 2 + (_wH / 2) * s[i] / ((1 << 15) - 1.0);
+        volume += fabsf(s[i] / 32768.0f);
+        volume /= ECHANTILLONS;}
     return;
   }
   default: /* GL4DH_DRAW */
@@ -67,6 +69,7 @@ static void draw(void) {
     y0 = _hauteurs[i];
     pixels[y0 * w + x0] = _rgb(255, 0, 0);
   }
+  printf("Volume: %f\n", volume);
   gl4dpScreenHasChanged();
   gl4dpUpdateScreen(NULL);
 }
