@@ -66,6 +66,20 @@ void arbre(int state)
         glDeleteBuffers(2, _floorVBO);
     if (_floorColorBuffer)
         glDeleteBuffers(1, &_floorColorBuffer);
+        if (_floorVAO)
+            glDeleteVertexArrays(1, &_floorVAO);
+        if (_pId)
+            glDeleteProgram(_pId);
+        if (_lineVBO[0])
+            glDeleteBuffers(2, _lineVBO);
+        if (_lineVAO)
+            glDeleteVertexArrays(1, &_lineVAO);
+        if (_floorVBO[0])
+            glDeleteBuffers(2, _floorVBO);
+        if (_floorColorBuffer)
+            glDeleteBuffers(1, &_floorColorBuffer);
+        if (_floorVAO)
+            glDeleteVertexArrays(1, &_floorVAO);
         if (_lsystem)
             free(_lsystem);
         return;

@@ -155,6 +155,14 @@ void eau_scene(int state) {
             free(_particle_indices);
             _particle_indices = NULL;
         }
+        if (_pId) {
+            glDeleteProgram(_pId);
+            _pId = 0;
+        }
+        if (_quad) {
+            glDeleteVertexArrays(1, &_quad);
+            _quad = 0;
+        }
         rect_cleanup();
     }
         return;

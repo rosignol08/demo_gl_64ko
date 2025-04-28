@@ -183,7 +183,57 @@ void montagne(int state) {
       init();
       return;
     case GL4DH_FREE:
-      /* LIBERER LA MEMOIRE UTILISEE PAR LES <STATIC>s */
+        /* LIBERER LA MEMOIRE UTILISEE PAR LES <STATIC>s */
+        if (_fboId)
+        {
+            glDeleteFramebuffers(1, &_fboId);
+            _fboId = 0;
+        }
+        if (_texId)
+        {
+            glDeleteTextures(1, &_texId);
+            _texId = 0;
+        }
+        if (_pId)
+        {
+            glDeleteProgram(_pId);
+            _pId = 0;
+        }
+        if (_gridId)
+        {
+            glDeleteVertexArrays(1, &_gridId);
+            _gridId = 0;
+        }
+        if (_sphereId)
+        {
+            glDeleteVertexArrays(1, &_sphereId);
+            _sphereId = 0;
+        }
+        if (_quadId)
+        {
+            glDeleteVertexArrays(1, &_quadId);
+            _quadId = 0;
+        }
+        if (permTexId)
+        {
+            glDeleteTextures(1, &permTexId);
+            permTexId = 0;
+        }
+        if (gradTexId)
+        {
+            glDeleteTextures(1, &gradTexId);
+            gradTexId = 0;
+        }
+        if (_fboId)
+        {
+            glDeleteFramebuffers(1, &_fboId);
+            _fboId = 0;
+        }
+        if (_texId)
+        {
+            glDeleteTextures(1, &_texId);
+            _texId = 0;
+        }
       return;
     case GL4DH_UPDATE_WITH_AUDIO:
       /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */

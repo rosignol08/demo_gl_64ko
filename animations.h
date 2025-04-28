@@ -26,6 +26,7 @@ extern "C" {
   extern void rouge(int state);
   extern void vert(int state);
   extern void bleu(int state);
+  extern void noir(int state);
   extern void animationsInit(void);
 
   /* wf_cube.c */

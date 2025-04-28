@@ -112,6 +112,7 @@ void balle_song(int state)
             glDeleteProgram(_pId);
             _pId = 0;
         }
+        
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
     /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */
