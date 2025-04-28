@@ -75,7 +75,6 @@ static void draw(void);
 static void mobile_init(int n);
 static void mobile_simu(void);
 static void mobile_draw(void);
-static void mobile_quit(void);
 
 /* on créé une variable pour stocker l'identifiant du programme GPU */
 GLuint _pId = 0;
@@ -129,7 +128,6 @@ void rect_cleanup(void) {
 static mobile_t *_mobiles = NULL;
 static int _nb_mobiles = 0;
 
-static int _ww = 600, _wh = 600;
 void eau_scene(int state) {
     switch(state) {
     case GL4DH_INIT:

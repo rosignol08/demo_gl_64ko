@@ -20,7 +20,6 @@
 static void init(void);
 static void resize(int width, int height);
 static void draw(void);
-static void quit(void);
 
 //audio 
 
@@ -32,7 +31,7 @@ static GLuint _sphereId3 = 0;
 static GLuint _sphereId4 = 0;
 static GLuint _quadId = 0;
 static GLuint _pId = 0;
-static GLuint _ballWithGSId = 0;
+
 // post traitement
 static GLuint _fboId = 0;
 static GLuint _texId = 0;
@@ -67,6 +66,51 @@ void balle_song(int state)
         {
             glDeleteTextures(1, &_depthTexId);
             _depthTexId = 0;
+        }
+        if (_bloomtexture)
+        {
+            glDeleteTextures(1, &_bloomtexture);
+            _bloomtexture = 0;
+        }
+        if (_postProcessProgramId)
+        {
+            glDeleteProgram(_postProcessProgramId);
+            _postProcessProgramId = 0;
+        }
+        if (_screenQuadId)
+        {
+            glDeleteVertexArrays(1, &_screenQuadId);
+            _screenQuadId = 0;
+        }
+        if (_sphereId)
+        {
+            glDeleteVertexArrays(1, &_sphereId);
+            _sphereId = 0;
+        }
+        if (_sphereId2)
+        {
+            glDeleteVertexArrays(1, &_sphereId2);
+            _sphereId2 = 0;
+        }
+        if (_sphereId3)
+        {
+            glDeleteVertexArrays(1, &_sphereId3);
+            _sphereId3 = 0;
+        }
+        if (_sphereId4)
+        {
+            glDeleteVertexArrays(1, &_sphereId4);
+            _sphereId4 = 0;
+        }
+        if (_quadId)
+        {
+            glDeleteVertexArrays(1, &_quadId);
+            _quadId = 0;
+        }
+        if (_pId)
+        {
+            glDeleteProgram(_pId);
+            _pId = 0;
         }
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
@@ -199,15 +243,15 @@ static void resize(int width, int height)
 /* Render the scene with a ball and light */
 void draw(void)
 {
-    static double t0 = 0.0;
+    //static double t0 = 0.0;
     static float ballY = 0.0f;
-    static const float gravity = 9.8f;
-    static const float dampening = 0.8f;
+    //static const float gravity = 9.8f;
+    //static const float dampening = 0.8f;
     static const float floorY = -2.0f;
 
     double t = gl4dGetElapsedTime() / 1000.0;
-    double dt = t - t0;
-    t0 = t;
+    //double dt = t - t0;
+    //t0 = t;
 
     float lightBallX = 3.0f * sinf(t * 0.5f);
     float lightBallY = 1.0f + 0.5f * sinf(t);
@@ -218,12 +262,11 @@ void draw(void)
     GLfloat lightColor[4] = {1.0f, 1.0f, 1.0f, 1.0f}; /* Lumière plus intense (valeurs > 1 pour HDR) */
 
     GLfloat light2Pos[4] = {3.0f * cosf(t * 0.7f), 1.5f + 0.3f * sinf(t * 1.2f), 3.0f * sinf(t * 0.7f), 1.0f};
-    GLfloat light2couleur_obj[4] = {0.635f, 1.0f, 0.929f, 1.0f}; // Blanc légèrement teinté de turquoise
+    //GLfloat light2couleur_obj[4] = {0.635f, 1.0f, 0.929f, 1.0f}; // Blanc légèrement teinté de turquoise
     //GLfloat light2direction[4] = {1.0f, 0.0f, 0.0f, 1.0f};
     GLfloat light2couleur[4] = {0.29f, 0.988f, 0.859f, 1.0f}; // Blanc légèrement teinté de turquoise
 
     GLfloat light3Pos[4] = {2.5f * sinf(t * 0.8f + 2.0f), 0.8f + 0.6f * cosf(t * 0.9f), 2.5f * cosf(t * 0.8f + 1.5f), 1.0f};
-    GLfloat light3couleur_obj[4] = {0.8f, 0.8f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
     //GLfloat light3direction[4] = {0.0f, -1.0f, 0.0f, 1.0f};
     GLfloat light3couleur[4] = {0.373f, 0.373f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
 //pour le son
@@ -541,12 +584,6 @@ if (amplifiedVolume < 0.0f) {
     gl4dgDraw(_screenQuadId);
     /* Disable shader */
     glUseProgram(0);
-}
-
-/* Cleanup function */
-void quit(void)
-{
-    gl4duClean(GL4DU_ALL);
 }
 
 /*

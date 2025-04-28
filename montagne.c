@@ -236,26 +236,7 @@ void init(void)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1280, 960, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
-/* Fonction pour simplifier le contrôle de la caméra */
-static void setupCamera(float posX, float posY, float posZ, float rotX, float rotY, float rotZ) {
-    // Calcul du vecteur de direction à partir des angles de rotation
-    float dirX = cosf(rotY) * cosf(rotX);
-    float dirY = sinf(rotX);
-    float dirZ = sinf(rotY) * cosf(rotX);
-    
-    // Point regardé = position + direction
-    float targetX = posX + dirX;
-    float targetY = posY + dirY;
-    float targetZ = posZ + dirZ;
-    
-    // Vecteur up (dépend de l'angle Z pour permettre le "roll")
-    float upX = sinf(rotZ) * sinf(rotY);
-    float upY = cosf(rotZ);
-    float upZ = -sinf(rotZ) * cosf(rotY);
-    
-    // Appel à gl4duLookAtf avec les paramètres calculés
-    gl4duLookAtf(posX, posY, posZ, targetX, targetY, targetZ, upX, upY, upZ);
-}
+
 /*!\brief Cette fonction dessine dans le contexte OpenGL actif. */
 void draw(void)
 {
@@ -284,7 +265,6 @@ void draw(void)
     
     eyeX = 0.50f, eyeY = 0.50f, eyeZ = 0.0f;
      
-    //setupCamera(eyeX, eyeY, eyeZ, 0.0f, 0.0f, test);
     gl4duLookAtf(0.0f, 3.5f, test, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
     //eyeY += 0.0005f;
     test += 0.005f;

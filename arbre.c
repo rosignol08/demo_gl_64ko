@@ -23,6 +23,11 @@ static GLuint _pId = 0;
 static GLuint _lineVAO = 0;
 static GLuint _lineVBO[2] = {0, 0}; /* position et couleur */
 
+/* Variables pour le sol */
+static GLuint _floorVAO = 0;
+static GLuint _floorVBO[2] = {0, 0}; /* position et normales */
+static GLuint _floorColorBuffer = 0;
+
 /* Variables pour le L-système */
 static char* _lsystem = NULL;
 static int _iterations = 6;
@@ -57,6 +62,10 @@ void arbre(int state)
             glDeleteVertexArrays(1, &_lineVAO);
         if (_lineVBO[0])
             glDeleteBuffers(2, _lineVBO);
+            if (_floorVBO[0])
+        glDeleteBuffers(2, _floorVBO);
+    if (_floorColorBuffer)
+        glDeleteBuffers(1, &_floorColorBuffer);
         if (_lsystem)
             free(_lsystem);
         return;
@@ -87,6 +96,58 @@ void init(void)
     /* Créer le VAO et les VBOs pour dessiner les lignes */
     glGenVertexArrays(1, &_lineVAO);
     glGenBuffers(2, _lineVBO);
+
+    /* Créer le VAO et les VBOs pour le sol */
+    glGenVertexArrays(1, &_floorVAO);
+    glGenBuffers(2, _floorVBO);
+    glGenBuffers(1, &_floorColorBuffer);
+
+    /* Définir les dimensions du sol */
+    const GLfloat floorVertices[] = {
+        -1.5f, -0.8f, -1.5f,   // Coin bas-gauche
+         1.5f, -0.8f, -1.5f,   // Coin bas-droite
+         1.5f, -0.8f,  1.5f,   // Coin haut-droite
+        -1.5f, -0.8f,  1.5f    // Coin haut-gauche
+    };
+
+    /* Définir les normales du sol (vers le haut) */
+    const GLfloat floorNormals[] = {
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f
+    };
+
+    /* Définir les couleurs du sol */
+    const GLfloat floorColors[] = {
+        0.3f, 0.5f, 0.2f, 1.0f,
+        0.3f, 0.5f, 0.2f, 1.0f,
+        0.3f, 0.5f, 0.2f, 1.0f,
+        0.3f, 0.5f, 0.2f, 1.0f
+    };
+
+    /* Configurer le VAO et VBO pour le sol */
+    glBindVertexArray(_floorVAO);
+
+    /* Position du sol */
+    glBindBuffer(GL_ARRAY_BUFFER, _floorVBO[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(floorVertices), floorVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    /* Normales du sol */
+    glBindBuffer(GL_ARRAY_BUFFER, _floorVBO[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(floorNormals), floorNormals, GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0); // Attrib location 2 pour les normales
+    glEnableVertexAttribArray(2);
+
+    /* Couleurs du sol */
+    glBindBuffer(GL_ARRAY_BUFFER, _floorColorBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(floorColors), floorColors, GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
 
     /* Initialiser les matrices GL4D */
     gl4duGenMatrix(GL_FLOAT, "modelViewMatrix");
@@ -288,6 +349,23 @@ void drawLeaf3d(float x, float y, float z, float direction, float directionZ, in
     drawLine3d(xTip, yTip, zTip, xRight, yRight, zRight, thickness, r, g, b);
 }
 
+
+void drawFloor(void)
+{
+    glBindVertexArray(_floorVAO);
+    
+    /* Définir que c'est le sol dans le shader */
+    glUniform1i(glGetUniformLocation(_pId, "isFloor"), 1);
+    
+    /* Dessiner le quad du sol avec des triangles */
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    
+    /* Réinitialiser pour l'arbre */
+    glUniform1i(glGetUniformLocation(_pId, "isFloor"), 0);
+    
+    glBindVertexArray(0);
+}
+
 void draw(void)
 {
     static double t0 = 0;
@@ -318,6 +396,23 @@ void draw(void)
     /* Activer le shader */
     glUseProgram(_pId);
 
+    /* Configurer la lumière directionnelle */
+    float lightAngle = t * 0.2f; // Rotation lente de la lumière
+    GLfloat lightDir[3] = {
+        cosf(lightAngle),
+        0.8f,               // Toujours un peu vers le haut
+        sinf(lightAngle)
+    };
+    // Normaliser le vecteur de direction
+    float lightLength = sqrtf(lightDir[0] * lightDir[0] + lightDir[1] * lightDir[1] + lightDir[2] * lightDir[2]);
+    lightDir[0] /= lightLength;
+    lightDir[1] /= lightLength;
+    lightDir[2] /= lightLength;
+
+    // Envoyer la direction de la lumière au shader
+    glUniform3fv(glGetUniformLocation(_pId, "lightDir"), 1, lightDir);
+
+
     /* Configurer les matrices */
     gl4duBindMatrix("modelViewMatrix");
     gl4duLoadIdentityf();
@@ -326,6 +421,20 @@ void draw(void)
     gl4duRotatef(5.5f, 0, 0, 1);//TODO
     gl4duBindMatrix("projectionMatrix");
     gl4duSendMatrices();
+
+
+/* Activer le depth test pour le rendu 3D */
+glEnable(GL_DEPTH_TEST);
+
+/* Envoyer le temps au shader */
+glUniform1f(glGetUniformLocation(_pId, "time"), t * 0.1f);
+glUniform1i(glGetUniformLocation(_pId, "season"), _season);
+
+/* Dessiner le sol d'abord */
+drawFloor();
+
+/* Réinitialiser l'uniforme isFloor pour l'arbre */
+glUniform1i(glGetUniformLocation(_pId, "isFloor"), 0);
 
     /* Interpréter le système L */
     float x = 0.0f, y = -0.20f, z = 0.0f; /* Position de départ */
