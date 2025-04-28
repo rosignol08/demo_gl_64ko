@@ -61,7 +61,6 @@ void balle_song(int state)
             glDeleteTextures(1, &_texId);
             _texId = 0;
         }
-
         if (_depthTexId)
         {
             glDeleteTextures(1, &_depthTexId);
@@ -210,6 +209,9 @@ void init(void)
 
     /* Set up initial window size */
     resize(_wW, _wH);
+    //gl4duBindMatrix("projection");
+    //gl4duLoadIdentityf();
+    //gl4duFrustumf(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
 }
 
 /* Handle window resize */

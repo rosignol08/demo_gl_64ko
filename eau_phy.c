@@ -642,7 +642,7 @@ void init(void){
     _pId = gl4duCreateProgram("<vs>shaders/identity.vs", "<fs>shaders/calculs.fs", NULL);
     glClearColor(0.80f, 0.80f, 0.80f, 1.0f);
     
-    mobile_init(800);
+    mobile_init(400);
     //les rectangles
     rect_init_list(3); //la liste de rectangles
     rect_add(0.50f, -0.0f, 0.0f, 1.10f, 0.10f, 0.10f, -3.01f); // Rectangle 1
