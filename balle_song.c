@@ -25,9 +25,11 @@ static void quit(void);
 //audio 
 
 /* Global variables */
-static GLuint _wW = 800, _wH = 600;
+static GLuint _wW = 1280, _wH = 720;
 static GLuint _sphereId = 0;
 static GLuint _sphereId2 = 0;
+static GLuint _sphereId3 = 0;
+static GLuint _sphereId4 = 0;
 static GLuint _quadId = 0;
 static GLuint _pId = 0;
 static GLuint _ballWithGSId = 0;
@@ -39,7 +41,6 @@ static GLuint _postProcessProgramId = 0;
 static GLuint _screenQuadId = 0;
 static GLuint _bloomtexture = 0;
 
-int effets = 0;
 float teste = 0;
 
 void balle_song(int state)
@@ -93,8 +94,6 @@ void balle_song(int state)
 /* Initialize the scene */
 void init(void)
 {
-    /* Enable depth testing for proper 3D rendering */
-    glEnable(GL_DEPTH_TEST);
     /* Create shader program */
     _pId = gl4duCreateProgram("<vs>shaders/ball.vs", "<fs>shaders/ball.fs", NULL);
 
@@ -129,6 +128,8 @@ void init(void)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _wW, _wH, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);//pour pas que ca fasse des artefacts sur les bords
 
     // Attacher au FBO comme COLOR_ATTACHMENT1
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, _bloomtexture, 0);
@@ -151,14 +152,16 @@ void init(void)
     _quadId = gl4dgGenCubef(); // gl4dgGenQuadf();
     // orbes de lumiere
     _sphereId2 = gl4dgGenSpheref(20, 20);
-
-    /* Enable depth testing for proper 3D rendering */
-    glEnable(GL_DEPTH_TEST);
+    _sphereId3 = gl4dgGenSpheref(20, 20);
+    _sphereId4 = gl4dgGenSpheref(20, 20);
 
     /* Create matrices for projection, model and view transformations */
     gl4duGenMatrix(GL_FLOAT, "projection");
     gl4duGenMatrix(GL_FLOAT, "model");
     gl4duGenMatrix(GL_FLOAT, "view");
+
+    /* Enable depth testing for proper 3D rendering */
+    glEnable(GL_DEPTH_TEST);
 
     /* Set up initial window size */
     resize(_wW, _wH);
@@ -214,18 +217,15 @@ void draw(void)
     GLfloat lightPos[4] = {3.0f * sinf(t * 0.5f), 1 + 0.50f * sinf(t), 3.0f * cosf(t), 1.0f};
     GLfloat lightColor[4] = {1.0f, 1.0f, 1.0f, 1.0f}; /* Lumière plus intense (valeurs > 1 pour HDR) */
 
-    GLfloat light2couleur_obj[4] = {1.0f, 0.1f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
-    GLfloat light2direction[4] = {1.0f, 0.0f, 0.0f, 0.0f};
-    GLfloat light2couleur[4] = {1.0f, 0.8f, 0.8f, 1.0f}; // Blanc légèrement teinté de rouge
+    GLfloat light2Pos[4] = {3.0f * cosf(t * 0.7f), 1.5f + 0.3f * sinf(t * 1.2f), 3.0f * sinf(t * 0.7f), 1.0f};
+    GLfloat light2couleur_obj[4] = {0.635f, 1.0f, 0.929f, 1.0f}; // Blanc légèrement teinté de turquoise
+    //GLfloat light2direction[4] = {1.0f, 0.0f, 0.0f, 1.0f};
+    GLfloat light2couleur[4] = {0.29f, 0.988f, 0.859f, 1.0f}; // Blanc légèrement teinté de turquoise
 
-    GLfloat screenX, screenY;
-
-    screenX = (lightPos[0] + 5.0f) / 10.0f;
-    screenY = (lightPos[1] + 5.0f) / 10.0f;
-
+    GLfloat light3Pos[4] = {2.5f * sinf(t * 0.8f + 2.0f), 0.8f + 0.6f * cosf(t * 0.9f), 2.5f * cosf(t * 0.8f + 1.5f), 1.0f};
     GLfloat light3couleur_obj[4] = {0.8f, 0.8f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
-    GLfloat light3direction[4] = {0.0f, -1.0f, 0.0f, 0.0f};
-    GLfloat light3couleur[4] = {0.8f, 0.8f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
+    //GLfloat light3direction[4] = {0.0f, -1.0f, 0.0f, 1.0f};
+    GLfloat light3couleur[4] = {0.373f, 0.373f, 1.0f, 1.0f}; // Blanc légèrement teinté de bleu
 //pour le son
 //printf("Volume: %f\n", teste);
 // Amplify the volume to get a wider range of effects
@@ -269,30 +269,78 @@ if (amplifiedVolume < 0.0f) {
     glUniform1i(glGetUniformLocation(_pId, "useSecondLight"), 1);
 
     // couleur de la lumière directionnelle
-    glUniform4fv(glGetUniformLocation(_pId, "secondLightPosition"), 1, light2direction);
+    glUniform1i(glGetUniformLocation(_pId, "useSecondLight"), 1);
+    glUniform4fv(glGetUniformLocation(_pId, "secondLightPosition"), 1, light2Pos);
     glUniform4fv(glGetUniformLocation(_pId, "secondLightColor"), 1, light2couleur);
     // Ajouter ces lignes
-    glUniform1i(glGetUniformLocation(_pId, "secondLightType"), 0); // 0 pour directionnelle
+    glUniform1i(glGetUniformLocation(_pId, "secondLightType"), 1); // 0 pour directionnelle
 
     // troisième lumière directionnelle
     glUniform1i(glGetUniformLocation(_pId, "useThirdLight"), 1);
-    glUniform4fv(glGetUniformLocation(_pId, "thirdLightPosition"), 1, light3direction);
+    glUniform4fv(glGetUniformLocation(_pId, "thirdLightPosition"), 1, light3Pos);
     glUniform4fv(glGetUniformLocation(_pId, "thirdLightColor"), 1, light3couleur);
-    glUniform1i(glGetUniformLocation(_pId, "thirdLightType"), 0); // 0 pour directionnelle
+    glUniform1i(glGetUniformLocation(_pId, "thirdLightType"), 1); // 0 pour directionnelle
 
     // Draw a box with 6 quads (floor, ceiling, and 4 walls)
     gl4duBindMatrix("model");
-
-    // truc pour les murs
-    GLfloat boxColor[4] = {0.3f, 0.3f, 0.3f, 1.0f};
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, boxColor);
+    // Dark base color for all walls
+    GLfloat darkWallColor[4] = {0.1f, 0.1f, 0.1f, 1.0f};
+    GLfloat emissiveColor[4] = {0.424f, 0.8f, 1.0f, 1.0f}; //couleur emissive bleu
+    
+    // Default to non-emissive
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
     glDisable(GL_CULL_FACE);
+    
+    // Variables to track wall emissive states
+    static float lastTriggerTime = 0;
+    static int lastWall = 0;
+    static int activeWall = 0;
+    const float emissiveDuration = 0.5f; // Duration in seconds
+    
+    // Check if any wall is currently active (still lit)
+    bool isAnyWallActive = (t - lastTriggerTime) < emissiveDuration && activeWall > 0;
+    
+    // Only detect new wall triggers if no wall is currently active
+    if (!isAnyWallActive) {
+        // Determine which wall should be emissive based on amplifiedVolume
+        int currentWall = 0;
+        if (amplifiedVolume >= 1.5f && amplifiedVolume < 2.0f) {
+            currentWall = 1; // Right wall
+        } else if (amplifiedVolume >= 2.0f && amplifiedVolume < 3.0f) {
+            currentWall = 2; // Floor
+        } else if (amplifiedVolume >= 3.0f) {
+            currentWall = 3; // Back wall
+        }
+        
+        // If a new wall is triggered, update the active wall and trigger time
+        if (currentWall != 0 && currentWall != lastWall) {
+            activeWall = currentWall;
+            lastWall = currentWall;
+            lastTriggerTime = t;
+        }
+    } 
+    // Check if the active wall's time has expired
+    else if ((t - lastTriggerTime) >= emissiveDuration) {
+        activeWall = 0;
+    }
 
     // 1. Floor
+    
     gl4duLoadIdentityf();
     gl4duTranslatef(0.0f, floorY - 0.5f, 0.0f);
     gl4duScalef(5.0f, 0.1f, 5.0f);
     gl4duSendMatrices();
+    
+    // Make floor emissive if it's the active wall
+    if (activeWall == 2) {
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
+    } else {
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+        glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
+    }
     gl4dgDraw(_quadId);
 
     // 2. Ceiling
@@ -300,39 +348,58 @@ if (amplifiedVolume < 0.0f) {
     gl4duTranslatef(0.0f, floorY + 5.0f, 0.0f);
     gl4duScalef(5.0f, 0.1f, 5.0f);
     gl4duSendMatrices();
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+    glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
     gl4dgDraw(_quadId);
-
-    // Rendre ce mur émissif
-    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
-    // Couleur de la lumière émise par le mur
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, light2couleur_obj);
 
     // 3. Left wall
     gl4duLoadIdentityf();
     gl4duTranslatef(-5.0f, floorY + 2.5f, 0.0f);
     gl4duScalef(0.1f, 5.0f, 5.0f);
     gl4duSendMatrices();
+    // Make back wall emissive if it's the active wall
+    if (activeWall == 3) {
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
+    } else {
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+        glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
+    }
     gl4dgDraw(_quadId);
-    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, boxColor);
 
-    // 4. Right wall
+    // 4. mur de droite
     gl4duLoadIdentityf();
     gl4duTranslatef(5.0f, floorY + 2.5f, 0.0f);
     gl4duScalef(0.1f, 5.0f, 5.0f);
     gl4duSendMatrices();
+    
+    // on le fait emissif si c'est le mur actif
+    if (activeWall == 1) {
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
+    } else {
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+        glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
+    }
     gl4dgDraw(_quadId);
 
-    // 5. Front wall
+    // 5. mur arière
     gl4duLoadIdentityf();
     gl4duTranslatef(0.0f, floorY + 2.5f, -5.0f);
     gl4duScalef(5.0f, 5.0f, 0.1f);
     gl4duSendMatrices();
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+    glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
     gl4dgDraw(_quadId);
+
     /* Draw the ball */
     gl4duBindMatrix("model");
     gl4duLoadIdentityf();
-    gl4duTranslatef(0.0f, ballY, 0.0f);
+    gl4duTranslatef(0.0f, ballY, -1.0f);
     gl4duScalef(0.5f, 0.5f, 0.5f);
     glEnable(GL_CULL_FACE);
 
@@ -364,7 +431,7 @@ if (amplifiedVolume < 0.0f) {
     
     amplificateur_mouvement *= 2.0f;
     amplificateur_mouvement = amplifiedVolume > 3.0f ? 3.0f : (amplifiedVolume < 0.0f ? 0.0f : amplifiedVolume);
-    printf("amplificateur_mouvement: %f\n", amplificateur_mouvement);
+    //printf("amplificateur_mouvement: %f\n", amplificateur_mouvement);
     glUniform1f(glGetUniformLocation(_pId, "touche"), amplificateur_mouvement); //pour l'eau qui bougeamplificateur_mouvement
     //movementFactor; // Facteur de vitesse pour le mouvement
     glUniform1i(glGetUniformLocation(_pId, "isWater"), 1);         // Enable water effect
@@ -400,6 +467,41 @@ if (amplifiedVolume < 0.0f) {
     // Dessiner la balle lumineuse
     gl4dgDraw(_sphereId2);
 
+    /* Draw second orbiting light sphere */
+    gl4duLoadIdentityf();
+    // Different trajectory for the second light ball
+    float lightBall2X = 3.0f * cosf(t * 0.7f);
+    float lightBall2Y = 1.5f + 0.3f * sinf(t * 1.2f);
+    float lightBall2Z = 3.0f * sinf(t * 0.7f);
+    
+    gl4duTranslatef(lightBall2X, lightBall2Y, lightBall2Z);
+    gl4duScalef(0.2f, 0.2f, 0.2f);
+    gl4duSendMatrices();
+    
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, light2couleur);
+    // Update its position for lighting
+    GLfloat lightPos2[4] = {lightBall2X, lightBall2Y, lightBall2Z, 1.0f};
+    glUniform4fv(glGetUniformLocation(_pId, "secondLightPosition"), 1, lightPos2);
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
+    gl4dgDraw(_sphereId3);
+    
+    /* Draw third orbiting light sphere */
+    gl4duLoadIdentityf();
+    // Another unique trajectory for the third light ball
+    float lightBall3X = 2.5f * sinf(t * 0.8f + 2.0f);
+    float lightBall3Y = 0.8f + 0.6f * cosf(t * 0.9f);
+    float lightBall3Z = 2.5f * cosf(t * 0.8f + 1.5f);
+    
+    gl4duTranslatef(lightBall3X, lightBall3Y, lightBall3Z);
+    gl4duScalef(0.2f, 0.2f, 0.2f);
+    gl4duSendMatrices();
+    
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, light3couleur);
+    GLfloat lightPos3[4] = {lightBall3X, lightBall3Y, lightBall3Z, 1.0f};
+    glUniform4fv(glGetUniformLocation(_pId, "thirdLightPosition"), 1, lightPos3);
+    glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
+    gl4dgDraw(_sphereId4);
+
     // 6. Back wall
     // gl4duLoadIdentityf();
     // gl4duTranslatef(0.0f, floorY + 2.5f, -5.0f);
@@ -426,11 +528,9 @@ if (amplifiedVolume < 0.0f) {
 
     int numLights = 3;
     glUniform1i(glGetUniformLocation(_postProcessProgramId, "numLights"), numLights);
-    glUniform2f(glGetUniformLocation(_postProcessProgramId, "lightBallPosition"), screenX, screenY);
     glUniform1i(glGetUniformLocation(_postProcessProgramId, "screenTexture"), 0);
 
     /* Paramètres optionnels pour les effets */
-    glUniform1i(glGetUniformLocation(_postProcessProgramId, "effect"), effets);
     glUniform1f(glGetUniformLocation(_postProcessProgramId, "time"), t);
     glUniform2f(glGetUniformLocation(_postProcessProgramId, "resolution"), _wW, _wH);
 
@@ -439,16 +539,6 @@ if (amplifiedVolume < 0.0f) {
     // glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
     /* Dessiner un quad plein écran */
     gl4dgDraw(_screenQuadId);
-    /* Update effect every second */
-    static double lastEffectChange = 0.0;
-    double currentTime = gl4dGetElapsedTime() / 1000.0;
-
-    if (currentTime - lastEffectChange >= 1.0)
-    { /* Check if 1 second has passed */
-        // effets = (effets + 1) % 5;  /* Increment and cycle from 0 to 4 */
-        lastEffectChange = currentTime;
-    }
-    effets = 8;
     /* Disable shader */
     glUseProgram(0);
 }

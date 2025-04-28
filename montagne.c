@@ -1,7 +1,7 @@
 /*!\file montagne.c
  * \brief GL4Dummies, scene de montagne
- * \author Farès BELHADJ, amsi@up8.edu
- * \date February 02 2025
+ * \author Romaric chhaffray
+ * \date 28 04 2025
  */
 
 #include <GL4D/gl4du.h>
@@ -293,7 +293,7 @@ void draw(void)
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
     /* Mise à l'échelle du terrain */
-    gl4duScalef(5.0f, 2.5f, 5.0f);
+    gl4duScalef(10.0f, 5.0f, 10.0f);
     /* Envoyer les matrices */
     gl4duSendMatrices();
 

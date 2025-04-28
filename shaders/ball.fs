@@ -26,6 +26,7 @@ uniform vec4 thirdLightColor;         // Couleur de la troisième lumière
 uniform vec4 thirdLightPosition;      // Position/Direction de la lumière (W=1 pour positionnelle, W=0 pour directionnelle)
 uniform int useThirdLight;            // 1 pour activer cette lumière, 0 sinon
 uniform int thirdLightType;           // 0 = directional, 1 = positional
+uniform int numLights; // Nombre réel de lumières à utiliser
 
 //out vec4 fragColor;
 // Uniforms for water effect
@@ -211,6 +212,14 @@ void main() {
       float wavySpec = pow(max(dot(norm, halfwayDir), 0.0), shininess * (2.0 + sin(time) * 1.0));
       specular = (1.0 + waterRipple * 2.0) * wavySpec * vec3(lightColor);
 
+      // Effet de réflexion - simule un environnement reflété
+      vec3 reflectDir = reflect(-viewDir, norm);
+      vec3 skyColor = vec3(0.0, 0.827, 0.98); // Couleur du "ciel" reflété
+      vec3 reflection = mix(skyColor, vec3(1.0), pow(1.0 - max(dot(viewDir, norm), 0.0), 3.0));
+      
+      // Force du reflet qui varie avec les vagues
+      float reflectionStrength = 0.5 + waterRipple * 4.0 + sin(time * 0.8) * 0.1;
+      
       diffuse *= attenuation;
       specular *= attenuation;
 
@@ -222,10 +231,13 @@ void main() {
       // Couleur d'eau dynamique
       vec3 baseWaterColor = vec3(0.0, 0.5, 1.0);
       vec3 waterColor = mix(baseWaterColor, vec3(0.0, 0.7, 0.8), sin(time * 0.3) * 0.5 + 0.5);
+      
+      // Mélanger la couleur de l'eau avec les reflets
       vec3 waterEffect = (ambient + diffuse * waterDepth + specular + rimLight) * waterColor;
+      waterEffect = mix(waterEffect, reflection, reflectionStrength * rim);
 
       // Transparence variable
-      float alpha = ballColor.a * (0.1 + waterRipple + rim * 0.2);
+      float alpha = ballColor.a * (0.4 + waterRipple + rim * 0.2);
       FragColor = vec4(waterEffect, alpha);
     }else{
     // Code normal pour les objets non-émissifs

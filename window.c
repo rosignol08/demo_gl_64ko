@@ -38,7 +38,7 @@ static GL4DHanime _animations[] = {
 };
 
 /*!\brief dimensions initiales de la fenêtre */
-static GLfloat _dim[] = {1024, 768};
+static GLfloat _dim[] = {1280, 720};
 
 /*!\brief fonction principale : initialise la fenêtre, OpenGL, audio
  * et lance la boucle principale (infinie).

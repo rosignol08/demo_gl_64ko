@@ -37,6 +37,7 @@ extern "C" {
   extern void arbre(int state);
   extern void montagne(int state);
   extern void balle_song(int state);
+  extern void eau_scene(int state);
 
 
 #ifdef __cplusplus

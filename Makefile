@@ -21,7 +21,7 @@ PROGNAME = rgb
 VERSION = 1.2
 distdir = $(PACKNAME)_$(PROGNAME)-$(VERSION)
 HEADERS = animations.h audioHelper.h tiny4D.h
-SOURCES = animations.c audioHelper.c window.c basic_audio.c arbre.c montagne.c balle_song.c#wf_cube.c vhs.c 
+SOURCES = animations.c audioHelper.c window.c basic_audio.c arbre.c montagne.c balle_song.c eau_phy.c #wf_cube.c vhs.c 
 # compile arbre.c avec -Os aulieu de -O3
 arbre.o: CFLAGS = -Os
 MSVCSRC = $(patsubst %,<ClCompile Include=\"%\\\" \\/>,$(SOURCES))
@@ -55,6 +55,7 @@ LDFLAGS  += -lGL4Dummies $(shell sdl2-config --libs) -lSDL2_mixer -lSDL2_image
 all: $(PROGNAME)
 $(PROGNAME): $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) -o $(PROGNAME)
+	upx --best $(PROGNAME)
 %.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 dist: distdir
