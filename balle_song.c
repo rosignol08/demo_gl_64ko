@@ -25,6 +25,7 @@ static void draw(void);
 
 /* Global variables */
 static GLuint _wW = 1280, _wH = 720;
+
 static GLuint _sphereId = 0;
 static GLuint _sphereId2 = 0;
 static GLuint _sphereId3 = 0;
@@ -40,7 +41,15 @@ static GLuint _postProcessProgramId = 0;
 static GLuint _screenQuadId = 0;
 static GLuint _bloomtexture = 0;
 
+//pour le framebuffer actuel
+GLint originalFBO = 0;
+
+//pour faire grossir la sphere
+static float _scale_boule = 1.5f;
 float teste = 0;
+
+//pour savoir le temps depuis le debut de la scene
+static double temps_début = 0.0;
 
 void balle_song(int state)
 {
@@ -111,7 +120,6 @@ void balle_song(int state)
             glDeleteProgram(_pId);
             _pId = 0;
         }
-        
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
     /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */
@@ -130,14 +138,20 @@ void balle_song(int state)
         return;
     }
     default: /* GL4DH_DRAW */
+    
+    
         draw();
-        return;
+    return;
     }
 }
 
 /* Initialize the scene */
 void init(void)
 {
+    //je recupere le framebuffer d'origine
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &originalFBO);
+    //printf("originalFBO = %d\n", originalFBO);
+
     /* Create shader program */
     _pId = gl4duCreateProgram("<vs>shaders/ball.vs", "<fs>shaders/ball.fs", NULL);
 
@@ -188,7 +202,17 @@ void init(void)
     }
 
     /* Revenir au framebuffer par défaut */
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //glBindFramebuffer(GL_FRAMEBUFFER, originalFBO);
+    // Vérifier le FBO
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "Framebuffer incomplet! Error: %d (0x%x)\n", status, status);
+        // Essayez avec une configuration plus simple si nécessaire
+    }
+    
+    // Revenir au framebuffer par défaut
+    glBindFramebuffer(GL_FRAMEBUFFER, originalFBO);
+    
 
     /* Create a sphere for the ball */
     _sphereId = gl4dgGenSpheref(30, 30);
@@ -246,15 +270,15 @@ static void resize(int width, int height)
 /* Render the scene with a ball and light */
 void draw(void)
 {
-    //static double t0 = 0.0;
+    static double t0 = 0.0;
     static float ballY = 0.0f;
     //static const float gravity = 9.8f;
     //static const float dampening = 0.8f;
     static const float floorY = -2.0f;
 
     double t = gl4dGetElapsedTime() / 1000.0;
-    //double dt = t - t0;
-    //t0 = t;
+    double dt = t - t0;
+    t0 = t;
 
     float lightBallX = 3.0f * sinf(t * 0.5f);
     float lightBallY = 1.0f + 0.5f * sinf(t);
@@ -289,9 +313,11 @@ if (amplifiedVolume < 0.0f) {
 //printf("effet: %d\n", effets);
 //glUniform1f(glGetUniformLocation(_postProcessProgramId, "audioLevel"), audioLevel);
     /* Clear the screen */
+    //glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // Au début de draw()
     glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+    //printf("FBO = %d\n", _fboId);
     // Important : spécifier les deux buffers de sortie
     unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
     glDrawBuffers(2, attachments);
@@ -301,10 +327,39 @@ if (amplifiedVolume < 0.0f) {
     /* Set up camera position */
     gl4duBindMatrix("view");
     gl4duLoadIdentityf();
+    // Animation pour zoomer sur la sphère
+    static float cameraZoom = 7.0f; // Distance initiale de la caméra
+    static const float MIN_ZOOM = 2.7f; // Distance minimale réduite à la sphère (était 2.5f)
+    static const float TIME_THRESHOLD = 4.0f; // Secondes avant que la caméra commence à se déplacer
+    static const float ZOOM_SPEED = 1.0f; // Vitesse augmentée du mouvement de la caméra (était 0.7f)
+    
+    // Si temps_début n'est pas encore défini, l'initialiser
+    if (temps_début == 0.0) {
+        temps_début = t;
+    }
+    
+    // Calculer le temps écoulé depuis le début de la scène
+    double temps_ecoule = t - temps_début;
+    //printf("temps écoulé = %f\n", temps_ecoule);
+    
+    // Vérifier si nous devons zoomer
+    if (temps_ecoule > TIME_THRESHOLD) {
+        // Calculer à quel point nous devrions être proche
+        cameraZoom -= ZOOM_SPEED * dt;
+        // Ne pas trop s'approcher
+        if (cameraZoom < MIN_ZOOM) {
+           cameraZoom = MIN_ZOOM;
+        }
+        
+        // Mettre à jour la position de la caméra
+        gl4duBindMatrix("view");
+        gl4duLoadIdentityf();
+        gl4duLookAtf(0.0f, 1.0f, cameraZoom, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+     } else {
+        gl4duLookAtf(0.0f, 1.0f, 7.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+     }
     // gl4duLookAtf(0.0f, 1.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-    gl4duLookAtf(0.0f, 1.0f, 7.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-
-    ballY = 0.0f;//la balle est au milieu
+    
 
     // Réinitialiser le paramètre "isEmissive" pour les autres objets
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
@@ -330,87 +385,86 @@ if (amplifiedVolume < 0.0f) {
     // Draw a box with 6 quads (floor, ceiling, and 4 walls)
     gl4duBindMatrix("model");
     // Dark base color for all walls
-    GLfloat darkWallColor[4] = {0.1f, 0.1f, 0.1f, 1.0f};
+    GLfloat couleur_mur[4] = {0.612, 0.812, 0.729, 1.0f};
     GLfloat emissiveColor[4] = {0.424f, 0.8f, 1.0f, 1.0f}; //couleur emissive bleu
     
     // Default to non-emissive
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);
     glDisable(GL_CULL_FACE);
     
     // Variables to track wall emissive states
     static float lastTriggerTime = 0;
     static int lastWall = 0;
     static int activeWall = 0;
-    const float emissiveDuration = 0.5f; // Duration in seconds
+    const float emissiveDuration = 0.5f; //le temps d'emissivité
     
-    // Check if any wall is currently active (still lit)
+    //check si le temps d'emissivité est écoulé
     bool isAnyWallActive = (t - lastTriggerTime) < emissiveDuration && activeWall > 0;
     
-    // Only detect new wall triggers if no wall is currently active
+    //ça detecte si le son est fort
     if (!isAnyWallActive) {
-        // Determine which wall should be emissive based on amplifiedVolume
+        //determine quel mur est actif en fonction du volume
         int currentWall = 0;
         if (amplifiedVolume >= 1.5f && amplifiedVolume < 2.0f) {
-            currentWall = 1; // Right wall
+            currentWall = 1; //mur droite
         } else if (amplifiedVolume >= 2.0f && amplifiedVolume < 3.0f) {
-            currentWall = 2; // Floor
+            currentWall = 2; //sol
         } else if (amplifiedVolume >= 3.0f) {
-            currentWall = 3; // Back wall
+            currentWall = 3; //mur gauche
         }
         
-        // If a new wall is triggered, update the active wall and trigger time
+        //si le mur actif est différent du dernier mur, on le fait emissif
         if (currentWall != 0 && currentWall != lastWall) {
             activeWall = currentWall;
             lastWall = currentWall;
             lastTriggerTime = t;
         }
     } 
-    // Check if the active wall's time has expired
+    //verifier si le temps d'emissivité est écoulé
     else if ((t - lastTriggerTime) >= emissiveDuration) {
         activeWall = 0;
     }
 
-    // 1. Floor
-    
+    // 1. sol
     gl4duLoadIdentityf();
     gl4duTranslatef(0.0f, floorY - 0.5f, 0.0f);
     gl4duScalef(5.0f, 0.1f, 5.0f);
     gl4duSendMatrices();
     
-    // Make floor emissive if it's the active wall
+    // si il est actif, on le fait emissif
     if (activeWall == 2) {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
         glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
     } else {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);
         glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
     }
     gl4dgDraw(_quadId);
 
-    // 2. Ceiling
+    // 2. toit
     gl4duLoadIdentityf();
     gl4duTranslatef(0.0f, floorY + 5.0f, 0.0f);
     gl4duScalef(5.0f, 0.1f, 5.0f);
     gl4duSendMatrices();
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);
     glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
     gl4dgDraw(_quadId);
 
-    // 3. Left wall
+    // 3. mur de gauche
     gl4duLoadIdentityf();
     gl4duTranslatef(-5.0f, floorY + 2.5f, 0.0f);
     gl4duScalef(0.1f, 5.0f, 5.0f);
     gl4duSendMatrices();
-    // Make back wall emissive if it's the active wall
+    // on le fait emissif si c'est le mur actif
     if (activeWall == 3) {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
         glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
     } else {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);
         glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
     }
     gl4dgDraw(_quadId);
@@ -427,7 +481,7 @@ if (amplifiedVolume < 0.0f) {
         glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
     } else {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);
         glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
     }
     gl4dgDraw(_quadId);
@@ -438,22 +492,22 @@ if (amplifiedVolume < 0.0f) {
     gl4duScalef(5.0f, 5.0f, 0.1f);
     gl4duSendMatrices();
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
-    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, darkWallColor);
+    glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);
     glUniform1f(glGetUniformLocation(_pId, "shininess"), 64.0f);
     gl4dgDraw(_quadId);
 
-    /* Draw the ball */
+    //la balle d'eau
     gl4duBindMatrix("model");
     gl4duLoadIdentityf();
     gl4duTranslatef(0.0f, ballY, -1.0f);
-    gl4duScalef(0.5f, 0.5f, 0.5f);
+    gl4duScalef(_scale_boule, _scale_boule, _scale_boule);
     glEnable(GL_CULL_FACE);
 
     /* Send matrices to the shader */
     gl4duSendMatrices();
 
     // la balle de base
-    GLfloat ambientColor[4] = {0.1f, 0.1f, 0.1f, 1.0f}; /* Dark blue ambient */
+    GLfloat ambientColor[4] = {0.612, 0.812, 0.729, 0.40f}; /* Dark blue ambient */
     GLfloat ballColor[4] = {0.8f, 0.2f, 0.2f, 1.0f};    /* Red ball */
     GLfloat shininess = 64.0f;                          // Valeur de brillance (plus c'est élevé, plus le reflet est concentré)
 
@@ -473,12 +527,17 @@ if (amplifiedVolume < 0.0f) {
     glUniform1f(glGetUniformLocation(_pId, "movementFactor"), 1.0f); //pour l'eau qui bouge
     // Clamp amplifiedVolume entre 0 and 2
     float amplificateur_mouvement = amplifiedVolume > 2.0f ? 2.0f : (amplifiedVolume < 0.0f ? 0.0f : amplifiedVolume);
-    glUniform1f(glGetUniformLocation(_pId, "amplFactor"), amplificateur_mouvement*0.20f); //pour l'eau qui bouge
     
     amplificateur_mouvement *= 2.0f;
     amplificateur_mouvement = amplifiedVolume > 3.0f ? 3.0f : (amplifiedVolume < 0.0f ? 0.0f : amplifiedVolume);
-    //printf("amplificateur_mouvement: %f\n", amplificateur_mouvement);
-    glUniform1f(glGetUniformLocation(_pId, "touche"), amplificateur_mouvement); //pour l'eau qui bougeamplificateur_mouvement
+    printf("amplificateur_mouvement: %f\n", amplificateur_mouvement);
+    if (amplificateur_mouvement > 2.0f){
+        glUniform1f(glGetUniformLocation(_pId, "amplFactor"), amplificateur_mouvement*0.20f); //pour l'eau qui bouge
+        }
+    else
+    {
+        glUniform1f(glGetUniformLocation(_pId, "touche"), 0.10f); //pour l'eau qui bouge
+    }
     //movementFactor; // Facteur de vitesse pour le mouvement
     glUniform1i(glGetUniformLocation(_pId, "isWater"), 1);         // Enable water effect
     glUniform1f(glGetUniformLocation(_pId, "time"), t);
@@ -504,18 +563,17 @@ if (amplifiedVolume < 0.0f) {
     
     gl4duSendMatrices();
     // Couleur jaune-orangé pour la balle lumineuse
-    GLfloat lightBallColor[4] = {1.0f, 0.9f, 0.6f, 4.0f};
+    GLfloat lightBallColor[4] = {1.0f, 0.9f, 0.6f, 1.0f};
     glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, lightBallColor);
     glUniform4fv(glGetUniformLocation(_pId, "lightPosition"), 1, lightPos);
     glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1); // Cette balle est émissive
     glUniform1i(glGetUniformLocation(_pId, "lightType"), 1);
     glUniform1f(glGetUniformLocation(_pId, "time"), t);
-    // Dessiner la balle lumineuse
     gl4dgDraw(_sphereId2);
 
-    /* Draw second orbiting light sphere */
+    //la deuxieme sphere de lumière
     gl4duLoadIdentityf();
-    // Different trajectory for the second light ball
+    //la trajetoire de la deuxieme boule
     float lightBall2X = 3.0f * cosf(t * 0.7f);
     float lightBall2Y = 1.5f + 0.3f * sinf(t * 1.2f);
     float lightBall2Z = 3.0f * sinf(t * 0.7f);
@@ -557,7 +615,8 @@ if (amplifiedVolume < 0.0f) {
 
     teste += 0.05f;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    /* S'assurer que le framebuffer par défaut est actif */
+    glBindFramebuffer(GL_FRAMEBUFFER, originalFBO);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -585,7 +644,7 @@ if (amplifiedVolume < 0.0f) {
     // glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
     /* Dessiner un quad plein écran */
     gl4dgDraw(_screenQuadId);
-    /* Disable shader */
+    //desactivation du shader
     glUseProgram(0);
 }
 

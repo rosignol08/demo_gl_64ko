@@ -27,17 +27,19 @@ static void keydown(int keycode);
  * ce tableau se termine toujours par l'élémént {0, NULL, NULL,
  * NULL} */
 static GL4DHanime _animations[] = {
-  { 2000, ocean_scene, NULL, NULL },
-  { 2000, ocean_scene, montagne, fondu },
-  { 9000, montagne, NULL, NULL },
-  { 9000, montagne, bleu, pixels },
+  { 1000, noir, NULL, NULL},
+  { 1000, noir, montagne, fondu},
+  { 5000, montagne, NULL, NULL },
+  { 2000, montagne, intro_arabesque, fondu },
+  { 2000, intro_arabesque, NULL, NULL },
+  { 7000, intro_arabesque, bleu, pixels },
   { 2000, bleu, NULL, NULL },
   { 5000, bleu, eau_scene, fondu },
   { 5000, eau_scene, NULL, NULL }, 
   { 5000, eau_scene, noir, fondui }, 
-  { 5000, noir, balle_song, pixels },
+  { 5000, noir, balle_song, pixels },//bug : affiche la couleur bleu bizarement aulieu de la scene 
   { 9000, balle_song, NULL, NULL },
-  { 3000, balle_song, NULL, fondu },
+  { 3000, balle_song, arbre, fondu },//bug : affiche la sceen eau_scene bizarement aulieu de la scene 
   { 6000, arbre, NULL, NULL },
   { 2000, arbre, vert, fondu },
   { 2000, vert, NULL, NULL },
@@ -62,7 +64,8 @@ int main(int argc, char ** argv) {
   gl4duwKeyDownFunc(keydown);
   gl4duwDisplayFunc(gl4dhDraw);
 
-  ahInitAudio("snow-waltz-winter-piano-280274.mid");
+  //ahInitAudio("snow-waltz-winter-piano-280274.mid");
+  ahInitAudio("The-Snow-Is-Dancing.mid");
   gl4duwMainLoop();
   return 0;
 }

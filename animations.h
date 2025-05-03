@@ -40,7 +40,8 @@ extern "C" {
   extern void balle_song(int state);
   extern void eau_scene(int state);
   extern void ocean_scene(int state);
-
+  //extern void test_lumi(int state);
+  extern void intro_arabesque(int state);
 
 #ifdef __cplusplus
 }

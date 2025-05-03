@@ -13,7 +13,6 @@ uniform float waveSpeed;
 uniform float time;
 uniform float movementFactor; // Facteur de vitesse pour le mouvement
 uniform float amplFactor;     // Facteur d'amplitude
-uniform float touche; //indicateur de contact
 
 out vec3 normal;
 out vec3 fragPos;

@@ -163,6 +163,11 @@ void eau_scene(int state) {
             glDeleteVertexArrays(1, &_quad);
             _quad = 0;
         }
+        if (_rects) {
+            free(_rects);
+            _rects = NULL;
+        }
+        
         rect_cleanup();
     }
         return;
@@ -642,7 +647,7 @@ void init(void){
     _pId = gl4duCreateProgram("<vs>shaders/identity.vs", "<fs>shaders/calculs.fs", NULL);
     glClearColor(0.80f, 0.80f, 0.80f, 1.0f);
     
-    mobile_init(400);
+    mobile_init(300);
     //les rectangles
     rect_init_list(3); //la liste de rectangles
     rect_add(0.50f, -0.0f, 0.0f, 1.10f, 0.10f, 0.10f, -3.01f); // Rectangle 1
@@ -675,15 +680,15 @@ void mobile_init(int n){
     _nb_mobiles = n;
     _mobiles = malloc(_nb_mobiles * sizeof *_mobiles);
     assert(_mobiles);
-    // Créer une forme de carré pour l'initialisation
-    float start_x = -0.5f;
-    float start_y = 0.5f;
-    float width = 0.6f;
-    float height = 0.6f;
-    float spacing = 0.05f;
+    // Créer une forme de carré pour l'initialisation en haut à gauche
+    float start_x = -0.9f;  // Position plus à gauche
+    float start_y = 0.7f;   // Position plus en haut
+    float width = 0.4f;     // Réduire un peu la largeur
+    float height = 0.4f;    // Réduire un peu la hauteur
+    float spacing = 0.05f;  // Espacement entre les particules
 
     int index = 0;
-    for (float y = start_y; y <= start_y + height && index < n; y += spacing) {
+    for (float y = start_y; y >= start_y - height && index < n; y -= spacing) {
         for (float x = start_x; x <= start_x + width && index < n; x += spacing) {
             _mobiles[index].p.x = x;
             _mobiles[index].p.y = y;
@@ -807,11 +812,6 @@ void mobile_simu(void){
             _mobiles[i].v.y = -_mobiles[i].v.y * e;
             _mobiles[i].p.y = 1.0f - _mobiles[i].r;
         }
-        
-        // Amortissement global (facultatif)
-        //_mobiles[i].v.x *= 0.95;//95f;
-        //_mobiles[i].v.y *= 0.95;//95f;
-        
         // Mettre à jour la couleur en fonction de la pression (visualisation)
         float pressure_ratio = (_mobiles[i].pressure / (GAS_CONSTANT * REST_DENSITY))*0.01f;
         pressure_ratio = fmaxf(0.0f, fminf(1.0f, pressure_ratio * 0.1f));
@@ -824,16 +824,16 @@ void mobile_simu(void){
 		//	_mobiles[i].v.y *= 0.85f;
 		//}
 		/*
+        */
 		// Calculer la vitesse actuelle
 		float speed = sqrtf(_mobiles[i].v.x * _mobiles[i].v.x + _mobiles[i].v.y * _mobiles[i].v.y);
-    
+        //printf("Vitesse: %f\n", speed);
 		// Si la vitesse dépasse le maximum, la réduire
-		if (speed > max_speed) {
-			float scale = max_speed / speed;
+		if (speed > 0.50f) {
+			float scale = 0.50f / speed;
 			_mobiles[i].v.x *= scale;
 			_mobiles[i].v.y *= scale;
 		}
-		*/
     }
 	for (int i = 0; i < _nb_mobiles; ++i) {
 		for (int j = i + 1; j < _nb_mobiles; ++j) {

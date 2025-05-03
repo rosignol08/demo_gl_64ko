@@ -12,7 +12,8 @@ MKDIR = mkdir
 CHMOD = chmod
 CP = rsync -R
 # déclaration des options du compilateur
-CFLAGS = -Wall -O3
+#CFLAGS = -Wall -O3 
+CFLAGS = -Os -s -ffast-math -fomit-frame-pointer -fno-plt
 CPPFLAGS = -I.
 LDFLAGS = -lm
 # définition des fichiers et dossiers
@@ -21,7 +22,7 @@ PROGNAME = rgb
 VERSION = 1.2
 distdir = $(PACKNAME)_$(PROGNAME)-$(VERSION)
 HEADERS = animations.h audioHelper.h tiny4D.h
-SOURCES = animations.c audioHelper.c window.c basic_audio.c arbre.c montagne.c balle_song.c eau_phy.c ocean.c#wf_cube.c vhs.c 
+SOURCES = animations.c audioHelper.c window.c basic_audio.c arbre.c montagne.c balle_song.c eau_phy.c intro.c # test_lumi.c #ocean.c #wf_cube.c vhs.c 
 # compile arbre.c avec -Os aulieu de -O3
 arbre.o: CFLAGS = -Os
 MSVCSRC = $(patsubst %,<ClCompile Include=\"%\\\" \\/>,$(SOURCES))
