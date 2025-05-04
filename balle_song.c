@@ -530,9 +530,9 @@ if (amplifiedVolume < 0.0f) {
     
     amplificateur_mouvement *= 2.0f;
     amplificateur_mouvement = amplifiedVolume > 3.0f ? 3.0f : (amplifiedVolume < 0.0f ? 0.0f : amplifiedVolume);
-    printf("amplificateur_mouvement: %f\n", amplificateur_mouvement);
+    //printf("amplificateur_mouvement: %f\n", amplificateur_mouvement);
     if (amplificateur_mouvement > 2.0f){
-        glUniform1f(glGetUniformLocation(_pId, "amplFactor"), amplificateur_mouvement*0.20f); //pour l'eau qui bouge
+        glUniform1f(glGetUniformLocation(_pId, "amplFactor"), amplificateur_mouvement*0.10f); //pour l'eau qui bouge
         }
     else
     {

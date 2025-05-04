@@ -1,14 +1,11 @@
 #version 330
 out vec4 fragColor;
 in vec2 fcoord;
-uniform vec4 positions[1024];
-uniform vec4 couleurs[1024];
-uniform int nbe;
 
-uniform vec4 rectangles[8]; // Rectangles : (x, y, largeur, hauteur)
+uniform vec4 rectangles[10]; // Rectangles : (x, y, largeur, hauteur)
 uniform vec4 rect_color;       // Couleur des rectangles
 uniform int nb_rects;          // Nombre de rectangles
-uniform float rect_angles[8]; // Angles des rectangles
+uniform float rect_angles[10]; // Angles des rectangles
 
 uniform vec4 poisson[8];
 uniform vec4 poisson_color;
@@ -68,33 +65,4 @@ void main() {
       return;
     }
   }
-  //sinon 
-//  for (int i = 0; i < nbe; ++i) {
-//    vec2 delta = positions[i].xy - fcoord;
-//    
-//    // Early discard si le fragment est trop loin
-//    if (abs(delta.x) > 0.01 || abs(delta.y) > 0.01) continue;
-//
-//    if (dot(delta, delta) < 0.01 * 0.01) {
-//        fragColor = vec4(0.0, 0.0, 1.0, 1.0);
-//        return;
-//    }
-//}
 }
-
-  //for (int i = 0; i < nbe; ++i) {
-  //  float dist = distance(positions[i].xy, fcoord);
-  //  float radius = positions[i].z; // le rayon du mobile i
-  //  
-  //  if(dist < radius) {
-  //    // Soft edge effect: 1.0 at center, fading towards edge
-  //    float softness = 0.01; // Adjust this value to control blur amount (0.0-1.0)
-  //    float alpha = smoothstep(radius, radius * (1.0 - softness), dist);
-  //    
-  //    // Mix with background color based on alpha
-  //    vec4 bgColor = vec4(0.0, 0.0, 1.0, 1.0); // The background color
-  //    fragColor = mix(bgColor, couleurs[i], alpha);
-  //    return;
-  //  }      
-  //}
-

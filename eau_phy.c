@@ -77,7 +77,7 @@ struct vec3d_t
 };
 
 //temps de simulation
-static float TIME_SCALE = 1.0f;  //vitesse de simulation
+static float TIME_SCALE = 0.1f;  //vitesse de simulation
 
 
 static void init(void);
@@ -97,6 +97,9 @@ GLuint _quad = 0;
 GLuint particle_vbo;
 GLuint particle_vao;
 
+//les poissons qui nagent
+float poission_position[2] = {0.0f, 0.0f};
+float poission_position_y = 0.0f;
 /* gravité */
 //static GLfloat _ig = 9.81f / 2.0f;
 static vec3d_t _g = {0.0f, 0.0f, 0.0f}; // Modification ici: définir la gravité vers le bas à -9.81f
@@ -305,7 +308,7 @@ void rect_draw_all(void) {
     glUniform1i(glGetUniformLocation(_pId, "nb_rects"), _nb_rects);
 
     //set la couleur en blanc
-    glUniform4f(glGetUniformLocation(_pId, "rect_color"), 1.0f, 1.0f, 1.0f, 1.0f);
+    glUniform4f(glGetUniformLocation(_pId, "rect_color"), 0.6f, 0.6f, 0.6f, 1.0f);
     for (int i = 0; i < _nb_mobiles; ++i) {
         for (int j = 0; j < _nb_rects; ++j) {
             collide_with_rotated_rect(&_mobiles[i], &_rects[j], e);
@@ -379,6 +382,35 @@ static void collide_with_rotated_oval(mobile_t* m, const oval3d_t* o, float e) {
         m->p.x = correctedX + o->x;
         m->p.y = correctedY + o->y;
         m->v.y = -m->v.y * e;
+    }
+}
+
+//fonction pour mettre à jour la position des poissons
+void update_fish_positions(void) {
+    static float time = 0.0f;
+    time += 0.1f;
+    // Mouvement en diagonale avec variation en Y
+    float base_x = -0.8f + time * 0.05f;  // Avance en X de gauche à droite
+    float base_y = -0.8f + time * 0.3f;  // Avance en Y en diagonale
+    poission_position_y += 0.00085f + (0.001f * sinf(time)); // Oscillation en Y
+    
+    // Ajoute une légère oscillation en Y avec cosinus
+    poission_position[0] = base_x;
+    poission_position[1] = -0.42f + poission_position_y;//base_y * (cosf(time * 3.0f) * 0.05f);
+    
+    // Si le poisson sort de l'écran, le faire revenir de l'autre côté
+//    if (poission_position[0] > 1.0f) {
+//        time = 0.0f;  // Réinitialiser le temps
+//    }
+    
+    // Maj de la position du poisson dans le tableau _ovals
+    if (_nb_poisson > 0) {
+        _ovals[0].x = poission_position[0];
+        _ovals[0].y = poission_position[1];
+        
+        // Faire pointer le poisson dans la direction du mouvement
+        // L'angle est calculé en fonction de la direction du mouvement + oscillation
+        _ovals[0].angle_x = atan2f(0.03f + 0.1f * -sinf(time * 3.0f), 0.05f);
     }
 }
 
@@ -717,20 +749,24 @@ void init(void){
     _pId = gl4duCreateProgram("<vs>shaders/identity.vs", "<fs>shaders/calculs.fs", NULL);
     /* créer un programme GPU pour OpenGL (en GL4D) */
     _pId_particules = gl4duCreateProgram("<vs>shaders/parti.vs", "<fs>shaders/parti.fs", NULL);
-    glClearColor(0.80f, 0.80f, 0.80f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
-    mobile_init(1023);
+    mobile_init(1024);
     //les rectangles
-    rect_init_list(8); //la liste de rectangles
+    rect_init_list(11); //la liste de rectangles
     // 0.99f droite -0.99f gauche
     rect_add(0.7f, -0.50f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(0.4, -0.55f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(0.1, -0.6f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-0.2, -0.65f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-0.5, -0.7f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-0.8, -0.75f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-1.1, -0.8f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-1.4, -0.85f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(0.4f, -0.55f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(0.1f, -0.6f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-0.2f, -0.65f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-0.5f, -0.7f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-0.8f, -0.75f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-1.1f, -0.8f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-1.4f, -0.85f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    //rect_add(0.0f, -0.90f, 0.0f, 0.9f, 0.5f, 0.0f, 0.3f);
+    oval_init_list(1); //la liste de poissons
+    oval_add(poission_position[0], poission_position[1], 0.0f, 0.10f, 0.10f, 0.0f, -0.2f); // Poisson 1
+
     glGenVertexArrays(1, &particle_vao);
     glBindVertexArray(particle_vao);
 
@@ -738,7 +774,7 @@ void init(void){
     glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
 
     //initiation avec une taille fixe
-    glBufferData(GL_ARRAY_BUFFER, 1023 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 1024 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
 
     //configuration des attributs (position, rayon, couleur)
     glEnableVertexAttribArray(0); // position (vec2)
@@ -768,6 +804,7 @@ void init(void){
 void draw(void){
 	/* effacer le buffer de couleur (image) et le buffer de profondeur d'OpenGL */
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	/* utiliser le programme GPU "_pId" */
 	glUseProgram(_pId);
 	/* binder (mettre au premier plan, "en courante" ou "en active") la
@@ -801,6 +838,7 @@ void draw(void){
     mobile_simu();
 	mobile_draw();
     rect_draw_all();
+    update_fish_positions();
     oval_draw_all();
     /* n'utiliser aucun programme GPU (pas nécessaire) */
     glUseProgram(0);
@@ -829,7 +867,7 @@ void mobile_init(int n){
         _mobiles[i].v.z = 0.0f;
         
         // Rayon légèrement variable pour plus de naturel
-        _mobiles[i].r = 0.015f + 0.01f * gl4dmSURand();
+        _mobiles[i].r = 0.02f;// + 0.01f * gl4dmSURand(); //TODOOO
         
         // Initialisation des propriétés SPH
         _mobiles[i].density = REST_DENSITY;
@@ -841,7 +879,7 @@ void mobile_init(int n){
         // Couleur bleue pour les particules d'eau
         _mobiles[i].color[0] = 0.0f;
         _mobiles[i].color[1] = 0.4f;
-        _mobiles[i].color[2] = 0.8f;
+        _mobiles[i].color[2] = 0.9f;
         _mobiles[i].color[3] = 1.0f;
     }
 }
@@ -897,12 +935,12 @@ void mobile_simu(void) {
             _mobiles[i].p.y = 1.0f - _mobiles[i].r;
         }
 
-        // Mettre à jour la couleur en fonction de la pression (visualisation)
-        float pressure_ratio = (_mobiles[i].pressure / (GAS_CONSTANT * REST_DENSITY)) * 0.01f;
-        pressure_ratio = fmaxf(0.0f, fminf(1.0f, pressure_ratio * 0.1f));
-        _mobiles[i].color[0] = 0.0f;
-        _mobiles[i].color[1] = 0.4f;
-        _mobiles[i].color[2] = 0.8f;
+        // Mettre à jour la couleur en fonction de la pression (visualisation) faut decommenter
+        //float pressure_ratio = (_mobiles[i].pressure / (GAS_CONSTANT * REST_DENSITY)) * 0.01f;
+        //pressure_ratio = fmaxf(0.0f, fminf(1.0f, pressure_ratio * 0.1f));
+        //_mobiles[i].color[0] = 0.0f;
+        //_mobiles[i].color[1] = 0.4f;
+        //_mobiles[i].color[2] = 0.8f;
 
         // Calculer la vitesse actuelle
         float speed_squared = _mobiles[i].v.x * _mobiles[i].v.x + _mobiles[i].v.y * _mobiles[i].v.y;
