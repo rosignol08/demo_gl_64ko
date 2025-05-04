@@ -40,6 +40,7 @@ void intro_arabesque(int state) {
         return;
     }
 }
+
 void init(void) {
     //Nouvelle manière include direct avec imfs (merci julien)
     const char * imfs = "<imfs>intro.fs</imfs>\n"

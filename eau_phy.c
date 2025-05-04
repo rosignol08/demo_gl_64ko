@@ -38,11 +38,22 @@ typedef struct {
     float angle_x; // Angle de rotation sur l'axe x
 } rect3d_t;
 
+//pour les poissons ovales
+typedef struct {
+    float x, y, z;
+    float w, h, d;
+    float angle_x; // Angle de rotation sur l'axe x
+} oval3d_t;
+
 //tableau dynamique global
 static rect3d_t* _rects = NULL;  
 static int _nb_rects   = 0;     
 static int _max_rects  = 0;     
 
+//pour les poissons (des formes ovales)
+static oval3d_t* _ovals = NULL;
+static int _nb_poisson = 0;
+static int _max_poisson = 0;
 
 //struct pour la grille spatiale
 typedef struct {
@@ -66,7 +77,7 @@ struct vec3d_t
 };
 
 //temps de simulation
-static float TIME_SCALE = 10.0f;  //vitesse de simulation
+static float TIME_SCALE = 1.0f;  //vitesse de simulation
 
 
 static void init(void);
@@ -78,8 +89,13 @@ static void mobile_draw(void);
 
 /* on créé une variable pour stocker l'identifiant du programme GPU */
 GLuint _pId = 0;
+GLuint _pId_particules = 0;
 
 GLuint _quad = 0;
+
+// VBO et VAO pour les particules
+GLuint particle_vbo;
+GLuint particle_vao;
 
 /* gravité */
 //static GLfloat _ig = 9.81f / 2.0f;
@@ -122,7 +138,14 @@ void rect_cleanup(void) {
     _max_rects = 0;
 }
 
-
+void oval_cleanup(void) {
+    if (_ovals) {
+        free(_ovals);
+        _ovals = NULL;
+    }
+    _nb_poisson = 0;
+    _max_poisson = 0;
+}
 
 /* tous les mobiles de ma scène */
 static mobile_t *_mobiles = NULL;
@@ -169,13 +192,12 @@ void eau_scene(int state) {
         }
         
         rect_cleanup();
+        oval_cleanup();
     }
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
-        //maj de la simulation
-        mobile_simu();
-        
-        return;
+    
+    return;
     default: // GL4DH_DRAW
         draw();
         return;
@@ -306,6 +328,107 @@ void rect_collide_all(mobile_t* mobiles, int nb, float e) {
     }
 }
 
+void oval_init_list(int capacity) {
+    if (_ovals) free(_ovals);
+    _max_poisson = capacity;
+    _ovals = (oval3d_t*)malloc(_max_poisson * sizeof(oval3d_t));
+    _nb_poisson = 0;
+}
+
+// Ajoute un poisson à la liste
+// x, y, z : position du poisson, w, h : largeur et hauteur de l'oval 
+void oval_add(float x, float y, float z, float w, float h, float d, float angle_x) {
+    if (_nb_poisson >= _max_poisson) return; // ou agrandir dynamiquement
+    _ovals[_nb_poisson].x = x;
+    _ovals[_nb_poisson].y = y;
+    _ovals[_nb_poisson].z = z;
+    _ovals[_nb_poisson].w = w;
+    _ovals[_nb_poisson].h = h;
+    _ovals[_nb_poisson].d = d;
+    _ovals[_nb_poisson].angle_x = angle_x; // Ajout de l'angle de rotation sur l'axe x
+    _nb_poisson++;
+}
+
+static void collide_with_rotated_oval(mobile_t* m, const oval3d_t* o, float e) {
+    // Translate the particle's position to the oval's local space
+    float localX = m->p.x - o->x;
+    float localY = m->p.y - o->y;
+
+    // Apply rotation
+    float cosAngle = cosf(o->angle_x);
+    float sinAngle = sinf(o->angle_x);
+    float rotatedX = cosAngle * localX + sinAngle * localY;
+    float rotatedY = -sinAngle * localX + cosAngle * localY;
+
+    // Check if the rotated coordinate is within the oval's bounds
+    if (rotatedX >= 0.0f && rotatedX <= o->w &&
+        rotatedY >= 0.0f && rotatedY <= o->h) {
+        
+        // Correct the particle's position to push it outside the oval
+        if (rotatedY < o->h / 2.0f) {
+            rotatedY = -m->r; // Push below
+        } else {
+            rotatedY = o->h + m->r; // Push above
+        }
+
+        // Apply inverse rotation to return to global space
+        float correctedX = cosAngle * rotatedX - sinAngle * rotatedY;
+        float correctedY = sinAngle * rotatedX + cosAngle * rotatedY;
+
+        // Update the particle's position and velocity
+        m->p.x = correctedX + o->x;
+        m->p.y = correctedY + o->y;
+        m->v.y = -m->v.y * e;
+    }
+}
+
+void oval_draw_all(void) {
+    GLfloat *oval_data = malloc(4 * _nb_poisson * sizeof *oval_data); //4 pour x,y,w,h
+    assert(oval_data);
+    
+    for (int i = 0; i < _nb_poisson; ++i) {
+        oval_data[4 * i + 0] = _ovals[i].x;
+        oval_data[4 * i + 1] = _ovals[i].y;
+        oval_data[4 * i + 2] = _ovals[i].w;
+        oval_data[4 * i + 3] = _ovals[i].h;
+    }
+    // Set up an attribute for angles if needed
+    glUseProgram(_pId);
+    //allocation séparée pour les angles
+    float *angles = malloc(_nb_poisson * sizeof(float));
+    assert(angles);
+    for (int i = 0; i < _nb_poisson; ++i) {
+        angles[i] = _ovals[i].angle_x;
+    }
+    glUniform1fv(glGetUniformLocation(_pId, "poisson_angles"), _nb_poisson, angles);
+    glUseProgram(_pId);
+    glUniform4fv(glGetUniformLocation(_pId, "poisson"), _nb_poisson, oval_data);
+    glUniform1i(glGetUniformLocation(_pId, "nb_poisson"), _nb_poisson);
+
+    //set la couleur en blanc
+    glUniform4f(glGetUniformLocation(_pId, "poisson_color"), 1.0f, 1.0f, 1.0f, 1.0f);
+    
+    for (int i = 0; i < _nb_mobiles; ++i) {
+        for (int j = 0; j < _nb_poisson; ++j) {
+            collide_with_rotated_oval(&_mobiles[i], &_ovals[j], e);
+        }
+    }
+    
+    gl4dgDraw(_quad);
+    glUseProgram(0);
+
+    free(oval_data);
+    free(angles);
+}
+
+void oval_collide_all(mobile_t* mobiles, int nb, float e) {
+    for (int i = 0; i < nb; i++) {
+        for (int j = 0; j < _nb_poisson; j++) {
+            collide_with_rotated_oval(&mobiles[i], &_ovals[j], e);
+        }
+    }
+}
+
 // Fonction pour construire la grille spatiale
 void build_spatial_grid() {
     // Initialiser la grille
@@ -399,59 +522,6 @@ void compute_gravity_forces() {
             //_mobiles[j].v.z *= 0.9f;
             _mobiles[i].force.x *= 0.1f;
             _mobiles[i].force.y *= 0.1f;
-        }
-    }
-}
-
-
-// Gérer les collisions physiques entre particules
-void handle_particle_collisions(float dt) {
-    for (int i = 0; i < _nb_mobiles; ++i) {
-        for (int j = i + 1; j < _nb_mobiles; ++j) {
-            float dx = _mobiles[j].p.x - _mobiles[i].p.x;
-            float dy = _mobiles[j].p.y - _mobiles[i].p.y;
-            float dz = _mobiles[j].p.z - _mobiles[i].p.z;
-            
-            float dist2 = dx*dx + dy*dy + dz*dz;
-            float min_dist = _mobiles[i].r + _mobiles[j].r;
-            
-            if (dist2 < min_dist * min_dist) {
-                float dist = sqrtf(dist2);
-                if (dist < 0.0001f) dist = 0.0001f; // Éviter division par zéro
-                
-                // Vecteurs unitaires
-                float nx = dx / dist;
-                float ny = dy / dist;
-                float nz = dz / dist;
-                
-                // Correction de position pour éviter le chevauchement
-                float overlap = 0.5f * (min_dist - dist);
-                _mobiles[i].p.x -= nx * overlap;
-                _mobiles[i].p.y -= ny * overlap;
-                _mobiles[i].p.z -= nz * overlap;
-                _mobiles[j].p.x += nx * overlap;
-                _mobiles[j].p.y += ny * overlap;
-                _mobiles[j].p.z += nz * overlap;
-                
-                // Calcul de l'impulsion pour le rebond
-                float vx = _mobiles[j].v.x - _mobiles[i].v.x;
-                float vy = _mobiles[j].v.y - _mobiles[i].v.y;
-                float vz = _mobiles[j].v.z - _mobiles[i].v.z;
-                
-                float dot = vx*nx + vy*ny + vz*nz;
-                if (dot > 0.0f) continue; // Les particules s'éloignent déjà
-                
-                float impulse = -(1.0f + e) * dot;
-                impulse /= 2.0f; // Masses égales
-                
-                _mobiles[i].v.x -= impulse * nx;
-                _mobiles[i].v.y -= impulse * ny;
-                _mobiles[i].v.z -= impulse * nz;
-                
-                _mobiles[j].v.x += impulse * nx;
-                _mobiles[j].v.y += impulse * ny;
-                _mobiles[j].v.z += impulse * nz;
-            }
         }
     }
 }
@@ -645,14 +715,47 @@ void init(void){
     
     /* créer un programme GPU pour OpenGL (en GL4D) */
     _pId = gl4duCreateProgram("<vs>shaders/identity.vs", "<fs>shaders/calculs.fs", NULL);
+    /* créer un programme GPU pour OpenGL (en GL4D) */
+    _pId_particules = gl4duCreateProgram("<vs>shaders/parti.vs", "<fs>shaders/parti.fs", NULL);
     glClearColor(0.80f, 0.80f, 0.80f, 1.0f);
     
-    mobile_init(300);
+    mobile_init(1023);
     //les rectangles
-    rect_init_list(3); //la liste de rectangles
-    rect_add(0.50f, -0.0f, 0.0f, 1.10f, 0.10f, 0.10f, -3.01f); // Rectangle 1
-    rect_add(0.4f, -0.1f, 0.0f, 0.10f, 1.10f, 0.10f, 0.0f); // Rectangle 2
-    rect_add(-0.1f, 0.5f, 0.0f, 1.0f, 0.10f, 0.10f, 3.0f); // Rectangle 3
+    rect_init_list(8); //la liste de rectangles
+    // 0.99f droite -0.99f gauche
+    rect_add(0.7f, -0.50f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(0.4, -0.55f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(0.1, -0.6f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-0.2, -0.65f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-0.5, -0.7f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-0.8, -0.75f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-1.1, -0.8f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(-1.4, -0.85f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    glGenVertexArrays(1, &particle_vao);
+    glBindVertexArray(particle_vao);
+
+    glGenBuffers(1, &particle_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
+
+    //initiation avec une taille fixe
+    glBufferData(GL_ARRAY_BUFFER, 1023 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
+
+    //configuration des attributs (position, rayon, couleur)
+    glEnableVertexAttribArray(0); // position (vec2)
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1); // rayon (float)
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(2); // couleur (vec4)
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnable(GL_PROGRAM_POINT_SIZE);
+
+    glBindVertexArray(0); // clean
+
+    //les ovales trois poissons qui nagent en faissant des cercles
+    //oval_init_list(3); //la liste de poissons
+    //oval_add(0.5f, 0.0f, 0.0f, 1.10f, 0.10f, 0.10f, 0.0f); // Poisson 1
+    //oval_add(0.4f, 0.1f, 0.0f, 0.10f, 1.10f, 0.10f, 0.0f); // Poisson 2
+    //oval_add(0.0f, 0.2f, 0.0f, 1.0f, 0.10f, 0.10f, 0.0f); // Poisson 3
     //}else{
     //    glClearColor(0.5f, 0.0f, 0.0f, 1.0f);
     //    /* créer un programme GPU pour OpenGL (en GL4D) */
@@ -669,8 +772,36 @@ void draw(void){
 	glUseProgram(_pId);
 	/* binder (mettre au premier plan, "en courante" ou "en active") la
 	   matrice view */
+    //maj de la simulation
+    //ajustement de la vitesse de simulation en fonction des fps
+    //static double lastFrameTime = 0.0;
+    //double currentTime = gl4dGetElapsedTime() / 1000.0;
+    //double frameTime = currentTime - lastFrameTime;
+    //lastFrameTime = currentTime;
+//
+    //// Calculate current FPS
+    //double currentFPS = frameTime > 0.0 ? 1.0 / frameTime : 60.0;
+//
+    //// Target FPS for the simulation
+    //const double targetFPS = 60.0;
+//
+    //// Adjust TIME_SCALE to compensate for low framerate
+    //// If framerate drops, increase TIME_SCALE to maintain simulation speed
+    //if (currentFPS < targetFPS && currentFPS > 5.0) {  // Avoid extreme adjustments
+    //    float adjustment = targetFPS / currentFPS;
+    //    // Gradually adjust (avoid sudden changes)
+    //    TIME_SCALE = TIME_SCALE * 0.9f + (TIME_SCALE * adjustment) * 0.1f;
+    //    // Cap the maximum TIME_SCALE to avoid instability
+    //    if (TIME_SCALE > 30.0f) TIME_SCALE = 30.0f;
+    //} else if (currentFPS > targetFPS * 1.5) {
+    //    // If framerate is very high, slightly reduce TIME_SCALE for stability
+    //    TIME_SCALE = TIME_SCALE * 0.99f;
+    //    if (TIME_SCALE < 1.0f) TIME_SCALE = 1.0f;
+    //}
+    mobile_simu();
 	mobile_draw();
     rect_draw_all();
+    oval_draw_all();
     /* n'utiliser aucun programme GPU (pas nécessaire) */
     glUseProgram(0);
 }
@@ -680,87 +811,34 @@ void mobile_init(int n){
     _nb_mobiles = n;
     _mobiles = malloc(_nb_mobiles * sizeof *_mobiles);
     assert(_mobiles);
-    // Créer une forme de carré pour l'initialisation en haut à gauche
-    float start_x = -0.9f;  // Position plus à gauche
-    float start_y = 0.7f;   // Position plus en haut
-    float width = 0.4f;     // Réduire un peu la largeur
-    float height = 0.4f;    // Réduire un peu la hauteur
-    float spacing = 0.05f;  // Espacement entre les particules
-
-    int index = 0;
-    for (float y = start_y; y >= start_y - height && index < n; y -= spacing) {
-        for (float x = start_x; x <= start_x + width && index < n; x += spacing) {
-            _mobiles[index].p.x = x;
-            _mobiles[index].p.y = y;
-            _mobiles[index].p.z = 0.0f;
-            _mobiles[index].v.x = 0.0f;
-            _mobiles[index].v.y = 0.0f;
-            _mobiles[index].v.z = 0.0f;
-            _mobiles[index].r = 0.01f;
-            _mobiles[index].density = REST_DENSITY;
-            _mobiles[index].pressure = 0.0f;
-            _mobiles[index].force.x = 0.0f;
-            _mobiles[index].force.y = 0.0f;
-            _mobiles[index].force.z = 0.0f;
-            _mobiles[index].color[0] = 0.0f;
-            _mobiles[index].color[1] = 0.4f;
-            _mobiles[index].color[2] = 0.8f;
-            _mobiles[index].color[3] = 1.0f;
-            index++;
-        }
-    }
-
-    /*
-    // Créer une forme de "goutte d'eau" pour l'initialisation
-    float center_x = -0.5f;
-    float center_y = 0.7f;
-    float radius = 0.3f;
-    float spacing = 0.05f;
+    // Créer une forme en ligne (une seule rangée) en haut à droite
+    float min_x = 0.5f;       // Limite gauche de la zone de spawn
+    float max_x = 0.9f;       // Limite droite de la zone de spawn
+    float min_y = 0.5f;       // Limite basse de la zone de spawn
+    float max_y = 0.9f;       // Limite haute de la zone de spawn
     
-    int index = 0;
-    for (float y = center_y - radius; y <= center_y + radius && index < n; y += spacing) {
-        for (float x = center_x - radius; x <= center_x + radius && index < n; x += spacing) {
-            float dx = x - center_x;
-            float dy = y - center_y;
-            float dist = sqrtf(dx*dx + dy*dy);
-            
-            if (dist <= radius) {
-                _mobiles[index].p.x = x;
-                _mobiles[index].p.y = y;
-                _mobiles[index].p.z = 0.0f;
-                _mobiles[index].v.x = 0.0f;
-                _mobiles[index].v.y = 0.0f;
-                _mobiles[index].v.z = 0.0f;
-                _mobiles[index].r = 0.02f;
-                _mobiles[index].density = REST_DENSITY;
-                _mobiles[index].pressure = 0.0f;
-                _mobiles[index].force.x = 0.0f;
-                _mobiles[index].force.y = 0.0f;
-                _mobiles[index].force.z = 0.0f;
-                _mobiles[index].color[0] = 0.0f;
-                _mobiles[index].color[1] = 0.4f;
-                _mobiles[index].color[2] = 0.8f;
-                _mobiles[index].color[3] = 1.0f;
-                index++;
-            }
-        }
-    }
-    */
-    
-    // Si on n'a pas assez de particules, remplir le reste
-    for (int i = index; i < n; i++) {
-        _mobiles[i].p.x = gl4dmSURand() * 0.5f - 0.5f;
-        _mobiles[i].p.y = gl4dmSURand() * 0.5f + 0.5f;
+    for (int i = 0; i < n; i++) {
+        // Position aléatoire dans la zone définie
+        _mobiles[i].p.x = min_x + (max_x - min_x) * gl4dmSURand();
+        _mobiles[i].p.y = min_y + (max_y - min_y) * gl4dmSURand();
         _mobiles[i].p.z = 0.0f;
+        
+        // Vitesse initiale nulle
         _mobiles[i].v.x = 0.0f;
         _mobiles[i].v.y = 0.0f;
         _mobiles[i].v.z = 0.0f;
-        _mobiles[i].r = 0.01f;
+        
+        // Rayon légèrement variable pour plus de naturel
+        _mobiles[i].r = 0.015f + 0.01f * gl4dmSURand();
+        
+        // Initialisation des propriétés SPH
         _mobiles[i].density = REST_DENSITY;
         _mobiles[i].pressure = 0.0f;
         _mobiles[i].force.x = 0.0f;
         _mobiles[i].force.y = 0.0f;
         _mobiles[i].force.z = 0.0f;
+        
+        // Couleur bleue pour les particules d'eau
         _mobiles[i].color[0] = 0.0f;
         _mobiles[i].color[1] = 0.4f;
         _mobiles[i].color[2] = 0.8f;
@@ -770,139 +848,167 @@ void mobile_init(int n){
 
 
 
-void mobile_simu(void){
-	static double t0 = 0;
-	double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0) * 30.0;
-	t0 = t;
+void mobile_simu(void) {
+    static double t0 = 0;
+    double t = gl4dGetElapsedTime() / 1000.0;
+    double dt = (t - t0) * 30.0;
+    t0 = t;
 
-	if (dt > 0.03f) dt = 0.03f; // Limiter le pas de temps à 30 ms
+    if (dt > 0.03) dt = 0.03; // Limiter le pas de temps à 30 ms
+
     // Calculer les forces SPH
     compute_sph_forces();
+
+    // Précalculer les valeurs constantes
+    float dt_time_scale = dt * TIME_SCALE;
+    float dt_vitesse = dt * vitesse;
+    float max_speed_squared = 0.50f * 0.50f;
+    float min_distance_squared = MIN_DISTANCE * MIN_DISTANCE;
+
     for (int i = 0; i < _nb_mobiles; ++i) {
-        _mobiles[i].force.x *= dt*TIME_SCALE;
-        _mobiles[i].force.y *= dt*TIME_SCALE;
-        _mobiles[i].force.z *= dt*TIME_SCALE;
-    }
-	for (int i = 0; i < _nb_mobiles; ++i) {
+        _mobiles[i].force.x *= dt_time_scale;
+        _mobiles[i].force.y *= dt_time_scale;
+
         // Intégration explicite d'Euler
         float accel_x = _mobiles[i].force.x / _mobiles[i].density;
         float accel_y = _mobiles[i].force.y / _mobiles[i].density;
-        
-        _mobiles[i].v.x += accel_x * dt * vitesse;
-        _mobiles[i].v.y += accel_y * dt * vitesse;//TODO aller plus vite dans l'espace
-        
+
+        _mobiles[i].v.x += accel_x * dt_vitesse;
+        _mobiles[i].v.y += accel_y * dt_vitesse;
+
         // Mettre à jour position
         _mobiles[i].p.x += _mobiles[i].v.x * dt;
         _mobiles[i].p.y += _mobiles[i].v.y * dt;
-        
+
         // Collision avec les murs avec rebond
         if (_mobiles[i].p.x - _mobiles[i].r <= -1.0f) {
             _mobiles[i].v.x = -_mobiles[i].v.x * e;
             _mobiles[i].p.x = -1.0f + _mobiles[i].r;
-        }
-        if (_mobiles[i].p.x + _mobiles[i].r >= 1.0f) {
+        } else if (_mobiles[i].p.x + _mobiles[i].r >= 1.0f) {
             _mobiles[i].v.x = -_mobiles[i].v.x * e;
             _mobiles[i].p.x = 1.0f - _mobiles[i].r;
         }
+
         if (_mobiles[i].p.y - _mobiles[i].r <= -1.0f) {
             _mobiles[i].v.y = -_mobiles[i].v.y * e;
             _mobiles[i].p.y = -1.0f + _mobiles[i].r;
-        }
-        if (_mobiles[i].p.y + _mobiles[i].r >= 1.0f) {
+        } else if (_mobiles[i].p.y + _mobiles[i].r >= 1.0f) {
             _mobiles[i].v.y = -_mobiles[i].v.y * e;
             _mobiles[i].p.y = 1.0f - _mobiles[i].r;
         }
+
         // Mettre à jour la couleur en fonction de la pression (visualisation)
-        float pressure_ratio = (_mobiles[i].pressure / (GAS_CONSTANT * REST_DENSITY))*0.01f;
+        float pressure_ratio = (_mobiles[i].pressure / (GAS_CONSTANT * REST_DENSITY)) * 0.01f;
         pressure_ratio = fmaxf(0.0f, fminf(1.0f, pressure_ratio * 0.1f));
-        _mobiles[i].color[0] = 0.0f;// pressure_ratio;
-        _mobiles[i].color[1] = 0.4f;// 0.2f + 0.8f * (1.0f - pressure_ratio);
-        _mobiles[i].color[2] = 0.8f;// 1.0f - pressure_ratio;//TODO changer la couleur
-		// Si la densité est trop élevée, réduire la vitesse
-		//if (_mobiles[i].density > REST_DENSITY * 1.5f) {
-		//	_mobiles[i].v.x *= 0.85f;  // Réduire davantage la vitesse dans les zones denses
-		//	_mobiles[i].v.y *= 0.85f;
-		//}
-		/*
-        */
-		// Calculer la vitesse actuelle
-		float speed = sqrtf(_mobiles[i].v.x * _mobiles[i].v.x + _mobiles[i].v.y * _mobiles[i].v.y);
-        //printf("Vitesse: %f\n", speed);
-		// Si la vitesse dépasse le maximum, la réduire
-		if (speed > 0.50f) {
-			float scale = 0.50f / speed;
-			_mobiles[i].v.x *= scale;
-			_mobiles[i].v.y *= scale;
-		}
+        _mobiles[i].color[0] = 0.0f;
+        _mobiles[i].color[1] = 0.4f;
+        _mobiles[i].color[2] = 0.8f;
+
+        // Calculer la vitesse actuelle
+        float speed_squared = _mobiles[i].v.x * _mobiles[i].v.x + _mobiles[i].v.y * _mobiles[i].v.y;
+
+        // Si la vitesse dépasse le maximum, la réduire
+        if (speed_squared > max_speed_squared) {
+            float scale = 0.50f / sqrtf(speed_squared);
+            _mobiles[i].v.x *= scale;
+            _mobiles[i].v.y *= scale;
+        }
     }
-	for (int i = 0; i < _nb_mobiles; ++i) {
-		for (int j = i + 1; j < _nb_mobiles; ++j) {
-			float dx = _mobiles[j].p.x - _mobiles[i].p.x;
-			float dy = _mobiles[j].p.y - _mobiles[i].p.y;
-			float dist2 = dx * dx + dy * dy;
-			
-			// Somme des rayons
-			float sumRadii = _mobiles[i].r + _mobiles[j].r;
-			
-			// Test de collision
-			if (dist2 < sumRadii * sumRadii) {
-				float dist = sqrtf(dist2);
-				if (dist < 0.0001f) dist = 0.0001f; // éviter la division par zéro
-				
-				// Vecteur unitaire i -> j
-				float nx = dx / dist;
-				float ny = dy / dist;
-				
-				// Écarter les particules pour corriger le chevauchement
-				float overlap = 0.5f * (sumRadii - dist);
-				_mobiles[i].p.x -= nx * overlap;
-				_mobiles[i].p.y -= ny * overlap;
-				_mobiles[j].p.x += nx * overlap;
-				_mobiles[j].p.y += ny * overlap;
-				
-				// Vitesse relative dans la direction de la collision
-				float vx = _mobiles[j].v.x - _mobiles[i].v.x;
-				float vy = _mobiles[j].v.y - _mobiles[i].v.y;
-				float dot = vx * nx + vy * ny;
-				
-				// Si dot > 0, elles s'éloignent déjà ⇒ pas de correction supplémentaire
-				if (dot > 0.0f) continue;
-				
-				// Coefficient de restitution (rebond)
-				float restitution = 0.5f; // Ajustez selon l'effet rebond désiré
-				
-				// Impulsion
-				float impulse = -(1.0f + restitution) * dot;
-				// Masse = 1 pour les deux particules (dans votre code, MASS=1.0f)
-				impulse *= 0.5f; // Répartition égale si les masses sont égales
-				
-				// Appliquer l’impulsion
-				_mobiles[i].v.x -= nx * impulse;
-				_mobiles[i].v.y -= ny * impulse;
-				_mobiles[j].v.x += nx * impulse;
-				_mobiles[j].v.y += ny * impulse;
-			}
-		}
-	}
+
+    // Détection et résolution des collisions entre mobiles
+    for (int i = 0; i < _nb_mobiles; ++i) {
+        for (int j = i + 1; j < _nb_mobiles; ++j) {
+            float dx = _mobiles[j].p.x - _mobiles[i].p.x;
+            float dy = _mobiles[j].p.y - _mobiles[i].p.y;
+            float dist2 = dx * dx + dy * dy;
+
+            // Somme des rayons
+            float sumRadii = _mobiles[i].r + _mobiles[j].r;
+            float sumRadiiSquared = sumRadii * sumRadii;
+
+            // Test de collision
+            if (dist2 < sumRadiiSquared) {
+                float dist = sqrtf(dist2);
+                if (dist < 0.0001f) dist = 0.0001f; // éviter la division par zéro
+
+                // Vecteur unitaire i -> j
+                float nx = dx / dist;
+                float ny = dy / dist;
+
+                // Écarter les particules pour corriger le chevauchement
+                float overlap = 0.5f * (sumRadii - dist);
+                _mobiles[i].p.x -= nx * overlap;
+                _mobiles[i].p.y -= ny * overlap;
+                _mobiles[j].p.x += nx * overlap;
+                _mobiles[j].p.y += ny * overlap;
+
+                // Vitesse relative dans la direction de la collision
+                float vx = _mobiles[j].v.x - _mobiles[i].v.x;
+                float vy = _mobiles[j].v.y - _mobiles[i].v.y;
+                float dot = vx * nx + vy * ny;
+
+                // Si dot > 0, elles s'éloignent déjà ⇒ pas de correction supplémentaire
+                if (dot > 0.0f) continue;
+
+                // Coefficient de restitution (rebond)
+                float restitution = 0.5f; // Ajustez selon l'effet rebond désiré
+
+                // Impulsion
+                float impulse = -(1.0f + restitution) * dot;
+                impulse *= 0.5f; // Répartition égale si les masses sont égales
+
+                // Appliquer l’impulsion
+                _mobiles[i].v.x -= nx * impulse;
+                _mobiles[i].v.y -= ny * impulse;
+                _mobiles[j].v.x += nx * impulse;
+                _mobiles[j].v.y += ny * impulse;
+            }
+        }
+    }
+
     rect_collide_all(_mobiles, _nb_mobiles, e);
+    oval_collide_all(_mobiles, _nb_mobiles, e);
 }
 
 
+//void mobile_draw(void){
+//	GLfloat *tmp = malloc(4 * _nb_mobiles * sizeof *tmp);
+//	assert(tmp);
+//	for (int i = 0; i < _nb_mobiles; ++i){
+//		tmp[4 * i + 0] = _mobiles[i].p.x;
+//		tmp[4 * i + 1] = _mobiles[i].p.y;
+//		tmp[4 * i + 2] = _mobiles[i].r;
+//	}
+//	glUniform4fv(glGetUniformLocation(_pId, "positions"), _nb_mobiles, tmp);
+//	for (int i = 0; i < _nb_mobiles; ++i)
+//		for (int j = 0; j < 4; ++j)
+//			tmp[4 * i + j] = _mobiles[i].color[j];
+//	glUniform4fv(glGetUniformLocation(_pId, "couleurs"), _nb_mobiles, tmp);
+//	glUniform1i(glGetUniformLocation(_pId, "nbe"), _nb_mobiles);
+//	//TODO met le scatering et blur
+//	gl4dgDraw(_quad);
+//	free(tmp);
+//}
 void mobile_draw(void){
-	GLfloat *tmp = malloc(4 * _nb_mobiles * sizeof *tmp);
-	assert(tmp);
-	for (int i = 0; i < _nb_mobiles; ++i){
-		tmp[4 * i + 0] = _mobiles[i].p.x;
-		tmp[4 * i + 1] = _mobiles[i].p.y;
-		tmp[4 * i + 2] = _mobiles[i].r;
-	}
-	glUniform4fv(glGetUniformLocation(_pId, "positions"), _nb_mobiles, tmp);
-	for (int i = 0; i < _nb_mobiles; ++i)
-		for (int j = 0; j < 4; ++j)
-			tmp[4 * i + j] = _mobiles[i].color[j];
-	glUniform4fv(glGetUniformLocation(_pId, "couleurs"), _nb_mobiles, tmp);
-	glUniform1i(glGetUniformLocation(_pId, "nbe"), _nb_mobiles);
-	//TODO met le scatering et blur
-	gl4dgDraw(_quad);
-	free(tmp);
+    GLfloat *tmp = malloc(sizeof(float) * 7 * _nb_mobiles);
+    assert(tmp);
+
+    for (int i = 0; i < _nb_mobiles; ++i) {
+        tmp[i * 7 + 0] = _mobiles[i].p.x;
+        tmp[i * 7 + 1] = _mobiles[i].p.y;
+        tmp[i * 7 + 2] = _mobiles[i].r;
+        tmp[i * 7 + 3] = _mobiles[i].color[0];
+        tmp[i * 7 + 4] = _mobiles[i].color[1];
+        tmp[i * 7 + 5] = _mobiles[i].color[2];
+        tmp[i * 7 + 6] = _mobiles[i].color[3];
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float) * 7 * _nb_mobiles, tmp);
+    free(tmp);
+
+    glUseProgram(_pId_particules); // ton shader pour les particules
+    glBindVertexArray(particle_vao);
+    glDrawArrays(GL_POINTS, 0, _nb_mobiles);
+    glBindVertexArray(0);
 }
