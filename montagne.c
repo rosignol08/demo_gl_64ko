@@ -257,13 +257,6 @@ void init(void)
     glEnable(GL_DEPTH_TEST);
     /* Création des matrices GL4Dummies, une pour la projection, une
      * pour la modélisation et une pour la vue */
-    //gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
-    //gl4duBindMatrix("projectionMatrix");
-    //gl4duLoadIdentityf();
-    //gl4duFrustumf(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
-    //
-    //gl4duGenMatrix(GL_FLOAT, "modelMatrix");
-    //gl4duGenMatrix(GL_FLOAT, "viewMatrix");
     gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
     gl4duGenMatrix(GL_FLOAT, "modelMatrix");
     gl4duGenMatrix(GL_FLOAT, "viewMatrix");

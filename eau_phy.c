@@ -131,24 +131,6 @@ struct mobile_t {
     int cell_id;
 };
 
-// Libère la liste
-void rect_cleanup(void) {
-    if (_rects) {
-        free(_rects);
-        _rects = NULL;
-    }
-    _nb_rects = 0;
-    _max_rects = 0;
-}
-
-void oval_cleanup(void) {
-    if (_ovals) {
-        free(_ovals);
-        _ovals = NULL;
-    }
-    _nb_poisson = 0;
-    _max_poisson = 0;
-}
 
 /* tous les mobiles de ma scène */
 static mobile_t *_mobiles = NULL;
@@ -193,13 +175,18 @@ void eau_scene(int state) {
             free(_rects);
             _rects = NULL;
         }
-        
-        rect_cleanup();
-        oval_cleanup();
+        if (_rects) {
+            free(_rects);
+            _rects = NULL;
+        }
+        _nb_rects = 0;
+        _max_rects = 0;
         if (_ovals) {
             free(_ovals);
             _ovals = NULL;
         }
+        _nb_poisson = 0;
+        _max_poisson = 0;
     }
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
