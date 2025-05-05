@@ -471,6 +471,101 @@ glUniform1i(glGetUniformLocation(_pId, "season"), _season);
     t0 = t;
     //envoie t au vertex shader
     glUniform1f(glGetUniformLocation(_pId, "temps"), t * 0.1f);
+    /* Dessiner plusieurs arbres */
+    int numTrees = 3; // Nombre d'arbres à dessiner
+    float positionX[] = {0.0f, 0.6f, -0.5f}; // Positions X
+    float positionZ[] = {-2.0f, -2.5f, -2.3f}; // Positions Z
+    float rotationOffset[] = {0.0f, 30.0f, 60.0f}; // Rotations différentes
+    float scaleFactors[] = {1.0f, 0.9f, 1.1f}; // Facteurs d'échelle
+
+    for (int tree = 0; tree < numTrees; tree++) {
+        gl4duBindMatrix("modelViewMatrix");
+        gl4duLoadIdentityf();
+        gl4duScalef(30.5f * scaleFactors[tree], 30.5f * scaleFactors[tree], 30.5f * scaleFactors[tree]);
+        gl4duTranslatef(positionX[tree], -0.8f, positionZ[tree]);
+        gl4duRotatef(rotation + rotationOffset[tree], 0, 1, 0);
+        gl4duBindMatrix("projectionMatrix");
+        gl4duSendMatrices();
+
+        /* Envoyer le temps au shader avec un léger décalage */
+        glUniform1f(glGetUniformLocation(_pId, "time"), t * 0.1f + tree * 0.2f);
+        glUniform1i(glGetUniformLocation(_pId, "season"), _season);
+
+        /* Paramètres pour cet arbre */
+        float x2 = 0.0f, y2 = -0.20f, z2 = 0.0f;
+        float direction2 = 90.0f;
+        float directionZ2 = 0.0f;
+        float length2 = _baseLength * (0.4f + tree * 0.05f);
+        float thickness2 = 10.0f;
+
+        _stackTop = -1;  // Réinitialiser la pile
+
+        for (int i = 0; i < strlen(_lsystem); i++) {
+            char current = _lsystem[i];
+
+            switch (current) {
+            case 'F': {
+                float angleRadXY = direction2 * PI / 180.0f;
+                float angleRadZ = directionZ2 * PI / 180.0f;
+                
+                float newX = x2 + length2 * cos(angleRadXY) * cos(angleRadZ);
+                float newY = y2 + length2 * sin(angleRadXY) * cos(angleRadZ);
+                float newZ = z2 + length2 * sin(angleRadZ);
+                
+                float r = 0.6f - tree * 0.05f;
+                float g = 0.4f - tree * 0.05f;
+                float b = 0.2f;
+                glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 0);
+                drawLine3d(x2, y2, z2, newX, newY, newZ, thickness2, r, g, b);
+                
+                x2 = newX;
+                y2 = newY;
+                z2 = newZ;
+                
+                thickness2 *= 0.99f;
+                break;
+            }
+            case '+':
+                direction2 += _angle * (1.0f + tree * 0.02f);
+                break;
+            case '-':
+                direction2 -= _angle * (1.0f + tree * 0.02f);
+                break;
+            case '^':
+                directionZ2 += _angle;
+                directionZ2 = clampAngle(directionZ2, -60.0f, 60.0f);
+                break;
+            case '&':
+                directionZ2 -= _angle;
+                directionZ2 = clampAngle(directionZ2, -60.0f, 60.0f);
+                break;
+            case '[':
+                pushState3d(x2, y2, z2, direction2, directionZ2, length2, thickness2);
+                length2 *= _branchRatio * (1.0f + tree * 0.01f);
+                thickness2 *= 0.8f;
+                break;
+            case ']':
+                if (_stackTop >= 0) {
+                    TurtleState state = popState();
+                    x2 = state.x;
+                    y2 = state.y;
+                    z2 = state.z;
+                    direction2 = state.direction;
+                    directionZ2 = state.directionZ;
+                    length2 = state.length;
+                    thickness2 = state.thickness;
+                }
+                break;
+            case 'X':
+                if (i + 1 < strlen(_lsystem) && _lsystem[i + 1] != '[') {
+                    glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 1);
+                    drawLeaf3d(x2, y2, z2, direction2, directionZ2, _season);
+                    glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 0);
+                }
+                break;
+            }
+        }
+    }
     /* Désactiver le shader */
     glUseProgram(0);
 
