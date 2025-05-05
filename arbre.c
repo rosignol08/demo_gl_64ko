@@ -378,7 +378,7 @@ glUniform1i(glGetUniformLocation(_pId, "season"), _season);
     float x = 0.0f, y = -0.20f, z = 0.0f; /* Position de départ */
     float direction = 90.0f; /* Direction en degrés (vers le haut) */
     float directionZ = 0.0f; /* Direction Z (vers le haut) */
-    float length = _baseLength * 0.5f;//TODO reduire
+    float length = _baseLength * 0.4f;//TODO reduire
     float thickness = 10.0f;
 
     _stackTop = -1; /* Réinitialiser la pile */

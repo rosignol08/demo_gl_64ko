@@ -12,8 +12,8 @@
 #include <GL4D/gl4dh.h>
 #include <string.h>
 #include <stdlib.h>
-//#include <time.h>
-//#define USE_MINIFIED_SHADER //faut utiliser https://ctrl-alt-test.fr/minifier/?main pour réduire la taille des shaders
+// #include <time.h>
+// #define USE_MINIFIED_SHADER //faut utiliser https://ctrl-alt-test.fr/minifier/?main pour réduire la taille des shaders
 /* ---- Début du code de noise.c ---- */
 
 static GLuint permTexId = 0, gradTexId = 0;
@@ -142,13 +142,13 @@ static void unuseNoiseTextures(int shift)
     glActiveTexture(GL_TEXTURE0);
 }
 
-//static void freeNoiseTextures(void)
+// static void freeNoiseTextures(void)
 //{
-//    glDeleteTextures(1, &gradTexId);
-//    glDeleteTextures(1, &permTexId);
-//    permTexId = 0;
-//    gradTexId = 0;
-//}
+//     glDeleteTextures(1, &gradTexId);
+//     glDeleteTextures(1, &permTexId);
+//     permTexId = 0;
+//     gradTexId = 0;
+// }
 
 /* ---- Fin du code provenant de noise.c ---- */
 
@@ -156,7 +156,7 @@ static void unuseNoiseTextures(int shift)
 static void init(void);
 static void draw(void);
 /*!\brief largeur et hauteur de la fenêtre */
-//static int _ww = 1280, _wh = 960;
+// static int _ww = 1280, _wh = 960;
 /*!\brief identifiant du (futur) GLSL program */
 static GLuint _pId = 0;
 /*!\brief identifiant pour une géométrie GL4D */
@@ -168,20 +168,21 @@ static GLuint _sphereId = 0;
 static GLuint _fboId = 0;
 static GLuint _texId = 0;
 
-
 /* Variables pour la position de la caméra, le point regardé et le vecteur up */
 static GLfloat eyeX = 0.0f, eyeY = 0.0f, eyeZ = 0.0f;
 float test = 2.0f;
 /* booléen pour bruit ou pas de bruit */
-//static int _noise = 0;
+// static int _noise = 0;
 
-void montagne(int state) {
-        
-    switch(state) {
+void montagne(int state)
+{
+
+    switch (state)
+    {
     case GL4DH_INIT:
-      /* INITIALISEZ VOTRE ANIMATION (SES VARIABLES <STATIC>s) */
-      init();
-      return;
+        /* INITIALISEZ VOTRE ANIMATION (SES VARIABLES <STATIC>s) */
+        init();
+        return;
     case GL4DH_FREE:
         /* LIBERER LA MEMOIRE UTILISEE PAR LES <STATIC>s */
         if (_pId)
@@ -224,24 +225,21 @@ void montagne(int state) {
             glDeleteTextures(1, &_texId);
             _texId = 0;
         }
-        
-      return;
+
+        return;
     case GL4DH_UPDATE_WITH_AUDIO:
-      /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */
-      return;
+        /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */
+        return;
     default: /* GL4DH_DRAW */
-      /* JOUER L'ANIMATION */
-      draw();
-      return;
+        /* JOUER L'ANIMATION */
+        draw();
+        return;
     }
 }
 
 /*!\brief initialise les paramètres OpenGL et les données. */
 void init(void)
 {
-    //const char *noiseFragmentShader = NULL;
-    //const char *noiseVertexShader = NULL;
-    
     _pId = gl4duCreateProgram("<vs>shaders/lum_montagne.vs", "<fs>shaders/lum_montagne.fs", NULL);
     /* générer le terrain */
     GLfloat *heightmap = gl4dmTriangleEdge(33, 33, 0.6f);
@@ -279,28 +277,28 @@ void draw(void)
     double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
     t0 = t;
 
-    //glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
-    //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _texId, 0);
-    //gl4dgDraw(_quadId);
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
+    // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _texId, 0);
+    // gl4dgDraw(_quadId);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     /* effacement du buffer de couleur et de profondeur */
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     /* activation du programme _pId */
     glUseProgram(_pId);
     /* lier la matrice de projection */
-    //gl4duBindMatrix("projectionMatrix");
+    // gl4duBindMatrix("projectionMatrix");
     /* lier la matrice vue */
     gl4duBindMatrix("viewMatrix");
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
     /* Composer la matrice vue avec la caméra */
-    //gl4duLookAtf(0.0f, 2.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-    
+    // gl4duLookAtf(0.0f, 2.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+
     eyeX = 0.50f, eyeY = 0.50f, eyeZ = 0.0f;
-     
+
     gl4duLookAtf(0.0f, 3.5f, test, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-    //eyeY += 0.0005f;
+    // eyeY += 0.0005f;
     test += 0.005f;
     /* lier la matrice modèle */
     gl4duBindMatrix("modelMatrix");
@@ -337,15 +335,15 @@ void draw(void)
     useNoiseTextures(_pId, 0);
 
     /* Dessiner le terrain */
-    //gl4dgDraw(_gridId);
-    
+    // gl4dgDraw(_gridId);
+
     /* Use proper culling for the terrain to improve performance */
-    //glCullFace(GL_BACK);
-    
-    glEnable(GL_DEPTH_TEST);//faut activer ça
+    // glCullFace(GL_BACK);
+
+    glEnable(GL_DEPTH_TEST); // faut activer ça
     glEnable(GL_CULL_FACE);
     gl4dgDraw(_gridId);
-    //glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_DEPTH_TEST);
 
     /* Configurer la sphère pour le ciel */
     gl4duBindMatrix("modelMatrix");
@@ -375,22 +373,22 @@ void draw(void)
 }
 
 /* Nettoyage à la sortie */
-//void quit(void)
+// void quit(void)
 //{
-//    if (_fboId)
-//    {
-//        glDeleteFramebuffers(1, &_fboId);
-//        _fboId = 0;
-//    }
-//    if (_texId)
-//    {
-//        glDeleteTextures(1, &_texId);
-//        _texId = 0;
-//    }
+//     if (_fboId)
+//     {
+//         glDeleteFramebuffers(1, &_fboId);
+//         _fboId = 0;
+//     }
+//     if (_texId)
+//     {
+//         glDeleteTextures(1, &_texId);
+//         _texId = 0;
+//     }
 //
-//    /* Libérer les textures de bruit */
-//    freeNoiseTextures();
+//     /* Libérer les textures de bruit */
+//     freeNoiseTextures();
 //
-//    /* Nettoyer GL4Dummies */
-//    gl4duClean(GL4DU_ALL);
-//}
+//     /* Nettoyer GL4Dummies */
+//     gl4duClean(GL4DU_ALL);
+// }

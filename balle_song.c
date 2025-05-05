@@ -286,7 +286,7 @@ void draw(void)
 
     /* Set up light position for moving light */
     GLfloat lightPos[4] = {3.0f * sinf(t * 0.5f), 1 + 0.50f * sinf(t), 3.0f * cosf(t), 1.0f};
-    GLfloat lightColor[4] = {1.0f, 1.0f, 1.0f, 1.0f}; /* Lumière plus intense (valeurs > 1 pour HDR) */
+    GLfloat lightColor[4] = {1.0f, 1.0f, 1.0f, 0.30f}; /* Lumière plus intense (valeurs > 1 pour HDR) */
 
     GLfloat light2Pos[4] = {3.0f * cosf(t * 0.7f), 1.5f + 0.3f * sinf(t * 1.2f), 3.0f * sinf(t * 0.7f), 1.0f};
     //GLfloat light2couleur_obj[4] = {0.635f, 1.0f, 0.929f, 1.0f}; // Blanc légèrement teinté de turquoise
@@ -477,8 +477,8 @@ if (amplifiedVolume < 0.0f) {
     
     // on le fait emissif si c'est le mur actif
     if (activeWall == 1) {
-        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
-        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
+        //glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
+        //glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
     } else {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
         glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);

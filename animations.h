@@ -28,6 +28,7 @@ extern "C" {
   extern void bleu(int state);
   extern void noir(int state);
   extern void blanc(int state);
+  extern void couleur_du_mur(int state);
   extern void animationsInit(void);
 
   /* wf_cube.c */
@@ -43,6 +44,7 @@ extern "C" {
   extern void ombre_scene(int state);
   //extern void test_lumi(int state);
   extern void intro_arabesque(int state);
+  extern void montagne_arbre(int state);
 
 #ifdef __cplusplus
 }
