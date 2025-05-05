@@ -23,11 +23,6 @@ static GLuint _pId = 0;
 static GLuint _lineVAO = 0;
 static GLuint _lineVBO[2] = {0, 0}; /* position et couleur */
 
-/* Variables pour le sol */
-static GLuint _floorVAO = 0;
-static GLuint _floorVBO[2] = {0, 0}; /* position et normales */
-static GLuint _floorColorBuffer = 0;
-
 /* Variables pour le L-système */
 static char* _lsystem = NULL;
 static int _iterations = 6;
@@ -37,8 +32,7 @@ static float _branchRatio = 0.75f;
 static int _season = 0; /* 0:été, 1:automne, 2:hiver */
 
 /* Structure pour la pile d'états de la tortue */
-typedef struct
-{
+typedef struct{
     GLfloat x, y, z;
     GLfloat direction;
     GLfloat directionZ;
@@ -62,26 +56,15 @@ void arbre(int state)
             glDeleteVertexArrays(1, &_lineVAO);
         if (_lineVBO[0])
             glDeleteBuffers(2, _lineVBO);
-            if (_floorVBO[0])
-        glDeleteBuffers(2, _floorVBO);
-    if (_floorColorBuffer)
-        glDeleteBuffers(1, &_floorColorBuffer);
-        if (_floorVAO)
-            glDeleteVertexArrays(1, &_floorVAO);
         if (_pId)
             glDeleteProgram(_pId);
         if (_lineVBO[0])
             glDeleteBuffers(2, _lineVBO);
         if (_lineVAO)
             glDeleteVertexArrays(1, &_lineVAO);
-        if (_floorVBO[0])
-            glDeleteBuffers(2, _floorVBO);
-        if (_floorColorBuffer)
-            glDeleteBuffers(1, &_floorColorBuffer);
-        if (_floorVAO)
-            glDeleteVertexArrays(1, &_floorVAO);
         if (_lsystem)
             free(_lsystem);
+        
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
         return;
@@ -104,64 +87,12 @@ void init(void)
     /* Générer le système L */
     generateLSystem();
 
-    /* Créer le shader pour dessiner les lignes */
+    //le shader pour dessiner les lignes
     _pId = gl4duCreateProgram("<vs>shaders/arbre.vs", "<fs>shaders/arbre.fs", NULL);
 
-    /* Créer le VAO et les VBOs pour dessiner les lignes */
+    //le VAO et les VBOs pour dessiner les lignes
     glGenVertexArrays(1, &_lineVAO);
     glGenBuffers(2, _lineVBO);
-
-    /* Créer le VAO et les VBOs pour le sol */
-    glGenVertexArrays(1, &_floorVAO);
-    glGenBuffers(2, _floorVBO);
-    glGenBuffers(1, &_floorColorBuffer);
-
-    /* Définir les dimensions du sol */
-    const GLfloat floorVertices[] = {
-        -1.5f, -0.8f, -1.5f,   // Coin bas-gauche
-         1.5f, -0.8f, -1.5f,   // Coin bas-droite
-         1.5f, -0.8f,  1.5f,   // Coin haut-droite
-        -1.5f, -0.8f,  1.5f    // Coin haut-gauche
-    };
-
-    /* Définir les normales du sol (vers le haut) */
-    const GLfloat floorNormals[] = {
-        0.0f, 1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f
-    };
-
-    /* Définir les couleurs du sol */
-    const GLfloat floorColors[] = {
-        0.3f, 0.5f, 0.2f, 1.0f,
-        0.3f, 0.5f, 0.2f, 1.0f,
-        0.3f, 0.5f, 0.2f, 1.0f,
-        0.3f, 0.5f, 0.2f, 1.0f
-    };
-
-    /* Configurer le VAO et VBO pour le sol */
-    glBindVertexArray(_floorVAO);
-
-    /* Position du sol */
-    glBindBuffer(GL_ARRAY_BUFFER, _floorVBO[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(floorVertices), floorVertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-
-    /* Normales du sol */
-    glBindBuffer(GL_ARRAY_BUFFER, _floorVBO[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(floorNormals), floorNormals, GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0); // Attrib location 2 pour les normales
-    glEnableVertexAttribArray(2);
-
-    /* Couleurs du sol */
-    glBindBuffer(GL_ARRAY_BUFFER, _floorColorBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(floorColors), floorColors, GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
-
-    glBindVertexArray(0);
 
     /* Initialiser les matrices GL4D */
     gl4duGenMatrix(GL_FLOAT, "modelViewMatrix");
@@ -332,9 +263,9 @@ void drawLeaf3d(float x, float y, float z, float direction, float directionZ, in
 
     /* Ajuster la couleur selon la saison */
     if (season == 0) { /* Été */
-        r = 0.0f + ((float)rand() / RAND_MAX) * 0.2f; // Légère variation
-        g = 0.7f + ((float)rand() / RAND_MAX) * 0.3f; // Variation de vert
-        b = 0.0f;
+        r = 1.0f ;// ((float)rand() / RAND_MAX) * 0.2f; // Légère variation
+        g = 0.718f;// + ((float)rand() / RAND_MAX) * 0.3f; // Variation de vert
+        b = 0.773f;
     }
 
     /* Angle pour l'orientation de la feuille */
@@ -363,23 +294,6 @@ void drawLeaf3d(float x, float y, float z, float direction, float directionZ, in
     drawLine3d(xTip, yTip, zTip, xRight, yRight, zRight, thickness, r, g, b);
 }
 
-
-void drawFloor(void)
-{
-    glBindVertexArray(_floorVAO);
-    
-    /* Définir que c'est le sol dans le shader */
-    glUniform1i(glGetUniformLocation(_pId, "isFloor"), 1);
-    
-    /* Dessiner le quad du sol avec des triangles */
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-    
-    /* Réinitialiser pour l'arbre */
-    glUniform1i(glGetUniformLocation(_pId, "isFloor"), 0);
-    
-    glBindVertexArray(0);
-}
-
 void draw(void)
 {
     static double t0 = 0;
@@ -388,12 +302,12 @@ void draw(void)
     //pour qu'il grandisse
 
     /* La scène dure 5000ms = 5s*/
-    double sceneTime = gl4dhGetTicks() % 5000 / 5000.0;
+    double sceneTime = gl4dhGetTicks() % 12000 / 12000.0;
     static int lastIteration = 0;
-    int targetIteration = (int)(sceneTime * 6.0); //max d'itérations
+    int targetIteration = (int)(sceneTime * 7.0); //max d'itérations
     
     /* Ne régénérer que si une nouvelle itération est atteinte */
-    if(targetIteration > lastIteration && targetIteration <= 6) {
+    if(targetIteration > lastIteration && targetIteration <= 7) {
         lastIteration = targetIteration;
         
         /* Réinitialiser le L-system pour partir de l'axiome X */
@@ -411,11 +325,26 @@ void draw(void)
     glUseProgram(_pId);
 
     /* Configurer la lumière directionnelle */
-    float lightAngle = t * 0.2f; // Rotation lente de la lumière
+    //float lightAngle = t * 0.2f; // Rotation lente de la lumière
+    //GLfloat lightDir[3] = {
+    //    cosf(lightAngle),
+    //    0.8f,               // Toujours un peu vers le haut
+    //    sinf(lightAngle)
+    //};
+    //// Normaliser le vecteur de direction
+    //float lightLength = sqrtf(lightDir[0] * lightDir[0] + lightDir[1] * lightDir[1] + lightDir[2] * lightDir[2]);
+    //lightDir[0] /= lightLength;
+    //lightDir[1] /= lightLength;
+    //lightDir[2] /= lightLength;
+
+    // Envoyer la direction de la lumière au shader
+    //glUniform3fv(glGetUniformLocation(_pId, "lightDir"), 1, lightDir);
+    /* Faire osciller la direction de la lumière en cercle */
+    float lightAngle = t * 0.5f; // Vitesse de rotation
     GLfloat lightDir[3] = {
-        cosf(lightAngle),
-        0.8f,               // Toujours un peu vers le haut
-        sinf(lightAngle)
+        cosf(lightAngle),         // oscillation sur l'axe X
+        0.5f + 0.3f * sinf(t),    // légère oscillation verticale
+        sinf(lightAngle)          // oscillation sur l'axe Z
     };
     // Normaliser le vecteur de direction
     float lightLength = sqrtf(lightDir[0] * lightDir[0] + lightDir[1] * lightDir[1] + lightDir[2] * lightDir[2]);
@@ -430,9 +359,10 @@ void draw(void)
     /* Configurer les matrices */
     gl4duBindMatrix("modelViewMatrix");
     gl4duLoadIdentityf();
+    gl4duScalef(30.5f, 30.5f, 30.5f);
     gl4duTranslatef(0.0f, -0.8f, -2.0f);
     gl4duRotatef(rotation, 0, 1, 0);//TODO
-    gl4duRotatef(5.5f, 0, 0, 1);//TODO
+    //gl4duRotatef(5.5f, 0, 0, 1);//TODO
     gl4duBindMatrix("projectionMatrix");
     gl4duSendMatrices();
 
@@ -444,17 +374,11 @@ glEnable(GL_DEPTH_TEST);
 glUniform1f(glGetUniformLocation(_pId, "time"), t * 0.1f);
 glUniform1i(glGetUniformLocation(_pId, "season"), _season);
 
-/* Dessiner le sol d'abord */
-drawFloor();
-
-/* Réinitialiser l'uniforme isFloor pour l'arbre */
-glUniform1i(glGetUniformLocation(_pId, "isFloor"), 0);
-
     /* Interpréter le système L */
     float x = 0.0f, y = -0.20f, z = 0.0f; /* Position de départ */
     float direction = 90.0f; /* Direction en degrés (vers le haut) */
     float directionZ = 0.0f; /* Direction Z (vers le haut) */
-    float length = _baseLength;
+    float length = _baseLength * 0.5f;//TODO reduire
     float thickness = 10.0f;
 
     _stackTop = -1; /* Réinitialiser la pile */
@@ -478,6 +402,8 @@ glUniform1i(glGetUniformLocation(_pId, "isFloor"), 0);
     
     /* Dessiner la branche */
     float r = 0.6f, g = 0.4f, b = 0.2f; /* Couleur marron pour le tronc/branches */
+    //on dessine la branche
+    glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 0);
     drawLine3d(x, y, z, newX, newY, newZ, thickness, r, g, b);
     
     /* Mettre à jour la position */
@@ -528,10 +454,12 @@ glUniform1i(glGetUniformLocation(_pId, "isFloor"), 0);
             break;
         case 'X':
             /* Si X est suivi de caractères autres que '[', c'est une feuille */
-            if (i + 1 < strlen(_lsystem) && _lsystem[i + 1] != '[')
-            {
+            if (i + 1 < strlen(_lsystem) && _lsystem[i + 1] != '['){
+                //on dit que c'est une feuille
+                glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 1);
                 drawLeaf3d(x, y, z, direction, directionZ, _season);
-                //drawLeaf(x, y, direction, _season);
+                //on dit que c'est pas une feuille
+                glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 0);
             }
             break;
         }

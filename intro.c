@@ -4,8 +4,12 @@
 #include <GL4D/gl4dh.h>
 #include <math.h>
 
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 720
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+#define SCREEN_WIDTH 1920
+#define SCREEN_HEIGHT 1080
 
 static void init(void);
 static void draw(void);
@@ -121,8 +125,12 @@ void draw(void) {
         float y = radius * sin(angle);
         drawLotus(x, y, t + i * 0.5f);
     }
-    //carpe koi
+    
+    //premier poisson
     drawKoiFish(0, 0, t);
+    
+    //deuxième poisson dans l'autre sens (décalé de PI radians)
+    drawKoiFish(0, 0, t + M_PI*2);
 
     //desactivation du shader
     glUseProgram(0);
@@ -261,7 +269,7 @@ static void drawKoiFish(float centerX, float centerY, float t) {
     //tache rouge au milieu de la tête
     float spotX = x + fishLength * 0.3f * cos(angle);
     float spotY = y + fishLength * 0.3f * sin(angle);
-    float spotSize = 8.0f;
+    float spotSize = 6.0f;
 
     spotVertices[0] = spotX;
     spotVertices[1] = spotY;

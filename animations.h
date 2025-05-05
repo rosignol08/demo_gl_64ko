@@ -27,6 +27,7 @@ extern "C" {
   extern void vert(int state);
   extern void bleu(int state);
   extern void noir(int state);
+  extern void blanc(int state);
   extern void animationsInit(void);
 
   /* wf_cube.c */
@@ -39,7 +40,7 @@ extern "C" {
   extern void montagne(int state);
   extern void balle_song(int state);
   extern void eau_scene(int state);
-  extern void ocean_scene(int state);
+  extern void ombre_scene(int state);
   //extern void test_lumi(int state);
   extern void intro_arabesque(int state);
 

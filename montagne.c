@@ -184,16 +184,6 @@ void montagne(int state) {
       return;
     case GL4DH_FREE:
         /* LIBERER LA MEMOIRE UTILISEE PAR LES <STATIC>s */
-        if (_fboId)
-        {
-            glDeleteFramebuffers(1, &_fboId);
-            _fboId = 0;
-        }
-        if (_texId)
-        {
-            glDeleteTextures(1, &_texId);
-            _texId = 0;
-        }
         if (_pId)
         {
             glDeleteProgram(_pId);
@@ -234,6 +224,7 @@ void montagne(int state) {
             glDeleteTextures(1, &_texId);
             _texId = 0;
         }
+        
       return;
     case GL4DH_UPDATE_WITH_AUDIO:
       /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */
@@ -323,7 +314,7 @@ void draw(void)
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
     /* Mise à l'échelle du terrain */
-    gl4duScalef(10.0f, 5.0f, 10.0f);
+    gl4duScalef(8.0f, 4.0f, 8.0f);
     /* Envoyer les matrices */
     gl4duSendMatrices();
 
@@ -346,7 +337,7 @@ void draw(void)
 
     /* Matériaux */
     glUniform4f(glGetUniformLocation(_pId, "sambient"), 1.0f, 1.0f, 1.0f, 1.0f);
-    glUniform4f(glGetUniformLocation(_pId, "sdiffus"), 0.50f, 0.50f, 0.5f, 1.0f); // couleur du terrain
+    glUniform4f(glGetUniformLocation(_pId, "sdiffus"), 0.0f, 0.341f, 0.122f, 1.0f); // couleur du terrain
     glUniform4f(glGetUniformLocation(_pId, "sspeculaire"), 0.1f, 0.1f, 0.1f, 0.20f);
 
     /* Activer les textures de bruit pour le terrain et le ciel */

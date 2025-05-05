@@ -12,8 +12,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define MAX_NEIGHBOURS 64
-#define HASH_SIZE 1024
+#define MAX_NEIGHBOURS 32
+#define HASH_SIZE 2500
 #define CELL_SIZE 0.1f  //taille des cellules pour la grille spatiale
 
 //pour la gravitée radiale
@@ -196,6 +196,10 @@ void eau_scene(int state) {
         
         rect_cleanup();
         oval_cleanup();
+        if (_ovals) {
+            free(_ovals);
+            _ovals = NULL;
+        }
     }
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
@@ -610,15 +614,6 @@ void compute_sph_forces() {
 		    // Pression négative (attractive) si densité < REST_DENSITY, mais plus faible
             _mobiles[i].pressure = GAS_CONSTANT * 2.0f * (density_ratio - 1.0f);
 		}
-		//float density_ratio = _mobiles[i].density / REST_DENSITY;
-        //_mobiles[i].pressure = GAS_CONSTANT * (powf(density_ratio, 7) - 1.0f);
-        
-        // Limiter les pressions extrêmes pour éviter l'instabilité
-        //if (_mobiles[i].pressure > GAS_CONSTANT * 10.0f)
-        //    _mobiles[i].pressure = GAS_CONSTANT * 10.0f;
-        //if (_mobiles[i].pressure < -GAS_CONSTANT)
-        //    _mobiles[i].pressure = -GAS_CONSTANT;
-        
     }
     
     // Calculer les forces
@@ -751,7 +746,7 @@ void init(void){
     _pId_particules = gl4duCreateProgram("<vs>shaders/parti.vs", "<fs>shaders/parti.fs", NULL);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
-    mobile_init(1024);
+    mobile_init(2500);
     //les rectangles
     rect_init_list(11); //la liste de rectangles
     // 0.99f droite -0.99f gauche
@@ -774,7 +769,7 @@ void init(void){
     glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
 
     //initiation avec une taille fixe
-    glBufferData(GL_ARRAY_BUFFER, 1024 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 2500 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
 
     //configuration des attributs (position, rayon, couleur)
     glEnableVertexAttribArray(0); // position (vec2)
@@ -786,18 +781,6 @@ void init(void){
     glEnable(GL_PROGRAM_POINT_SIZE);
 
     glBindVertexArray(0); // clean
-
-    //les ovales trois poissons qui nagent en faissant des cercles
-    //oval_init_list(3); //la liste de poissons
-    //oval_add(0.5f, 0.0f, 0.0f, 1.10f, 0.10f, 0.10f, 0.0f); // Poisson 1
-    //oval_add(0.4f, 0.1f, 0.0f, 0.10f, 1.10f, 0.10f, 0.0f); // Poisson 2
-    //oval_add(0.0f, 0.2f, 0.0f, 1.0f, 0.10f, 0.10f, 0.0f); // Poisson 3
-    //}else{
-    //    glClearColor(0.5f, 0.0f, 0.0f, 1.0f);
-    //    /* créer un programme GPU pour OpenGL (en GL4D) */
-    //    _pId = gl4duCreateProgram("<vs>shaders/identity.vs", "<fs>shaders/calculs.fs", NULL);
-    //    space_init(1023);
-    //}
 }
 
 
@@ -807,34 +790,6 @@ void draw(void){
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	/* utiliser le programme GPU "_pId" */
 	glUseProgram(_pId);
-	/* binder (mettre au premier plan, "en courante" ou "en active") la
-	   matrice view */
-    //maj de la simulation
-    //ajustement de la vitesse de simulation en fonction des fps
-    //static double lastFrameTime = 0.0;
-    //double currentTime = gl4dGetElapsedTime() / 1000.0;
-    //double frameTime = currentTime - lastFrameTime;
-    //lastFrameTime = currentTime;
-//
-    //// Calculate current FPS
-    //double currentFPS = frameTime > 0.0 ? 1.0 / frameTime : 60.0;
-//
-    //// Target FPS for the simulation
-    //const double targetFPS = 60.0;
-//
-    //// Adjust TIME_SCALE to compensate for low framerate
-    //// If framerate drops, increase TIME_SCALE to maintain simulation speed
-    //if (currentFPS < targetFPS && currentFPS > 5.0) {  // Avoid extreme adjustments
-    //    float adjustment = targetFPS / currentFPS;
-    //    // Gradually adjust (avoid sudden changes)
-    //    TIME_SCALE = TIME_SCALE * 0.9f + (TIME_SCALE * adjustment) * 0.1f;
-    //    // Cap the maximum TIME_SCALE to avoid instability
-    //    if (TIME_SCALE > 30.0f) TIME_SCALE = 30.0f;
-    //} else if (currentFPS > targetFPS * 1.5) {
-    //    // If framerate is very high, slightly reduce TIME_SCALE for stability
-    //    TIME_SCALE = TIME_SCALE * 0.99f;
-    //    if (TIME_SCALE < 1.0f) TIME_SCALE = 1.0f;
-    //}
     mobile_simu();
 	mobile_draw();
     rect_draw_all();
@@ -1040,7 +995,6 @@ void mobile_draw(void){
         tmp[i * 7 + 5] = _mobiles[i].color[2];
         tmp[i * 7 + 6] = _mobiles[i].color[3];
     }
-
     glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float) * 7 * _nb_mobiles, tmp);
     free(tmp);

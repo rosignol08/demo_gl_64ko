@@ -49,25 +49,4 @@ void main() {
     fragColor = vec4(result, 1.0);
 
     BrightColor = vec4(0.0);
-
-
-
-    //else if (effect == 9) { //marche pas mais je met de coté
-    //    fragColor = texColor;
-    //    // Pas d'effet
-    //    if (fragColor.r > 0.5){
-    //        fragColor.r *= 5.0;
-    //    }
-    //    float brightness = dot(texColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-    //    if (brightness > 0.0){
-    //        BrightColor = vec4(texColor.rgb, 1.0);
-    //    }
-    //    else{
-    //        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-    //    }
-    //}
-    //else {
-    //    // Effet normal
-    //    fragColor = texColor;
-    //}
 }

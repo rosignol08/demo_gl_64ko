@@ -30,8 +30,6 @@ void main() {
       cosAngle * localCoord.x + sinAngle * localCoord.y,
       -sinAngle * localCoord.x + cosAngle * localCoord.y
     );
-
-    // Check if the rotated coordinate is within the rectangle's bounds
     if (rotatedCoord.x >= 0.0 && rotatedCoord.x <= rect.z &&
       rotatedCoord.y >= 0.0 && rotatedCoord.y <= rect.w) {
       

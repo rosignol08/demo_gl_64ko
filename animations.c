@@ -189,7 +189,7 @@ void pixels(void (* a0)(int), void (* a1)(int), Uint32 t, Uint32 et, int state) 
       noise[i] = (float)rand() / RAND_MAX;
     }
     
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, 250, 250, 0, GL_RED, GL_FLOAT, noise);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, 25, 25, 0, GL_RED, GL_FLOAT, noise);
     free(noise);
     
     pId = gl4duCreateProgram("<vs>shaders/basic.vs", "<fs>shaders/mixi.fs", NULL);
@@ -327,6 +327,26 @@ void noir(int state) {
   }
 }
 
+void blanc(int state) {
+  /* INITIALISEZ VOS VARIABLES */
+  /* ... */
+  switch(state) {
+  case GL4DH_INIT:
+    /* INITIALISEZ VOTRE ANIMATION (SES VARIABLES <STATIC>s) */
+    return;
+  case GL4DH_FREE:
+    /* LIBERER LA MEMOIRE UTILISEE PAR LES <STATIC>s */
+    return;
+  case GL4DH_UPDATE_WITH_AUDIO:
+    /* METTRE A JOUR VOTRE ANIMATION EN FONCTION DU SON */
+    return;
+  default: /* GL4DH_DRAW */
+    /* JOUER L'ANIMATION */
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    return;
+  }
+}
 
 void animationsInit(void) {
   if(!_quadId)

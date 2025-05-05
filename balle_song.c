@@ -24,7 +24,7 @@ static void draw(void);
 //audio 
 
 /* Global variables */
-static GLuint _wW = 1280, _wH = 720;
+static GLuint _wW = 1920, _wH = 1080;
 
 static GLuint _sphereId = 0;
 static GLuint _sphereId2 = 0;
@@ -330,8 +330,8 @@ if (amplifiedVolume < 0.0f) {
     // Animation pour zoomer sur la sphère
     static float cameraZoom = 7.0f; // Distance initiale de la caméra
     static const float MIN_ZOOM = 2.7f; // Distance minimale réduite à la sphère (était 2.5f)
-    static const float TIME_THRESHOLD = 4.0f; // Secondes avant que la caméra commence à se déplacer
-    static const float ZOOM_SPEED = 1.0f; // Vitesse augmentée du mouvement de la caméra (était 0.7f)
+    static const float TIME_THRESHOLD = 20.0f; // Secondes avant que la caméra commence à se déplacer
+    static const float ZOOM_SPEED = 0.0f; // Vitesse augmentée du mouvement de la caméra
     
     // Si temps_début n'est pas encore défini, l'initialiser
     if (temps_début == 0.0) {

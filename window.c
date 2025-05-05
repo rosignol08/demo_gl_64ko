@@ -28,26 +28,26 @@ static void keydown(int keycode);
  * NULL} */
 static GL4DHanime _animations[] = {
   { 1000, noir, NULL, NULL},
-  { 1000, noir, intro_arabesque, fondu},
-  { 5000, intro_arabesque, NULL, NULL },
-  { 2000, intro_arabesque, eau_scene, fondu },
-  { 2000, eau_scene, NULL, NULL },
-  { 7000, eau_scene, bleu, pixels },
-  { 2000, bleu, NULL, NULL },
-  { 5000, bleu, montagne, fondu },
-  { 5000, montagne, NULL, NULL }, 
-  { 5000, montagne, noir, fondui }, 
-  { 5000, noir, balle_song, pixels },//bug : affiche la couleur bleu bizarement aulieu de la scene 
+  { 5000, noir, intro_arabesque, fondu},
+  { 2000, intro_arabesque, NULL, NULL },
+  { 1000, intro_arabesque, montagne, fondu },
+  { 5000, montagne, NULL, NULL },
+  { 7000, montagne, noir, pixels },
+  { 2000, noir, NULL, NULL },
+  { 2000, noir, eau_scene, fondu },
+  { 10000, eau_scene, NULL, NULL }, 
+  { 5000, eau_scene, blanc, fondui }, 
+  { 5000, blanc, balle_song, pixels },
   { 9000, balle_song, NULL, NULL },
-  { 3000, balle_song, arbre, fondu },//bug : affiche la sceen eau_scene bizarement aulieu de la scene 
-  { 6000, arbre, NULL, NULL },
+  { 3000, balle_song, noir, fondu },
+  { 12000, arbre, NULL, NULL },
   { 2000, arbre, vert, fondu },
   { 2000, vert, NULL, NULL },
   { 0, NULL, NULL, NULL } /* Toujours laisser à la fin */
 };
 
 /*!\brief dimensions initiales de la fenêtre */
-static GLfloat _dim[] = {1280, 720};
+static GLfloat _dim[] = {1920, 1080};
 
 /*!\brief fonction principale : initialise la fenêtre, OpenGL, audio
  * et lance la boucle principale (infinie).
@@ -65,7 +65,7 @@ int main(int argc, char ** argv) {
   gl4duwDisplayFunc(gl4dhDraw);
 
   //ahInitAudio("snow-waltz-winter-piano-280274.mid");
-  ahInitAudio("The-Snow-Is-Dancing.mid");
+  ahInitAudio("flute.mid");
   gl4duwMainLoop();
   return 0;
 }
