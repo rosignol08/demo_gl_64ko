@@ -20,6 +20,7 @@ static void generateLSystem(void);
 
 /* Variables pour le rendu OpenGL */
 static GLuint _pId = 0;
+static GLuint _pId_sol_arbre = 0;
 static GLuint _lineVAO = 0;
 static GLuint _lineVBO[2] = {0, 0}; /* position et couleur */
 
@@ -44,6 +45,9 @@ typedef struct{
 static TurtleState _stateStack[100];
 static int _stackTop = -1;
 
+//pour le sol
+static GLuint _solId = 0;
+GLfloat *heightmap = NULL;
 void arbre(int state)
 {
     switch (state)
@@ -64,6 +68,10 @@ void arbre(int state)
             glDeleteVertexArrays(1, &_lineVAO);
         if (_lsystem)
             free(_lsystem);
+        _solId = 0;
+        _pId_sol_arbre = 0;
+        free(heightmap);
+
         
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
@@ -74,10 +82,54 @@ void arbre(int state)
     }
 }
 
-void init(void)
-{
+void init(void){
     /* Initialiser le générateur de nombres aléatoires */
     srand(time(NULL));
+
+     //Nouvelle manière include direct avec imfs (merci julien)
+     const char * imfs = "<imfs>le_sol.fs</imfs>\n"
+    #ifdef __GLES4D__
+        "#version 300 es\n"
+        "precision mediump float;\n"
+    #else
+        "#version 330 core\n"
+    #endif
+        "uniform vec3 lightDir;\n"
+        "uniform vec4 color;\n"
+        "in vec3 vNormal;\n"
+        "in vec3 vPosition;\n"
+        "out vec4 fragColor;\n"
+        "void main() {\n"
+        "    vec3 n = normalize(vNormal);\n"
+        "    vec3 l = normalize(lightDir);\n"
+        "    float diffuse = max(dot(n, l), 0.0);\n"
+        "    float ambient = 0.2;\n"
+        "    vec3 baseColor = vec3(0.4, 0.6, 0.3);\n"
+        "    vec3 finalColor = baseColor * (ambient + diffuse);\n"
+        "    fragColor = vec4(finalColor, 1.0);\n"
+        "}\n";
+ 
+    const char * imvs = "<imvs>le_sol.vs</imvs>\n"
+    #ifdef __GLES4D__
+        "#version 300 es\n"
+    #else
+        "#version 330 core\n"
+    #endif
+        "in vec3 position;\n"
+        "in vec3 normal;\n"
+        "uniform mat4 modelViewMatrix;\n"
+        "uniform mat4 projectionMatrix;\n"
+        "out vec3 vNormal;\n"
+        "out vec3 vPosition;\n"
+        "void main() {\n"
+        "    vec4 pos = modelViewMatrix * vec4(position, 1.0);\n"
+        "    vPosition = pos.xyz;\n"
+        "    vNormal = mat3(modelViewMatrix) * normal;\n"
+        "    gl_Position = projectionMatrix * pos;\n"
+        "}\n";
+    _pId_sol_arbre = gl4duCreateProgram(imvs, imfs, NULL);
+ 
+
     _lsystem = (char *)malloc(128 * sizeof(char));
     if (!_lsystem) {
         //fprintf(stderr, "Erreur d'allocation mémoire\n");
@@ -86,7 +138,11 @@ void init(void)
     strcpy(_lsystem, "X"); // Axiome de départ
     /* Générer le système L */
     generateLSystem();
-
+    //fait le sol
+    heightmap = gl4dmTriangleEdge(33, 33, 0.6f);
+    /* Créer une grid */
+    _solId = gl4dgGenGrid2dFromHeightMapf(33, 33, heightmap);
+    
     //le shader pour dessiner les lignes
     _pId = gl4duCreateProgram("<vs>shaders/arbre.vs", "<fs>shaders/arbre.fs", NULL);
 
@@ -99,7 +155,8 @@ void init(void)
     gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
     gl4duBindMatrix("projectionMatrix");
     gl4duLoadIdentityf();
-    gl4duFrustumf(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
+    //gl4duFrustumf(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1000.0f);
+    gl4duPerspectivef(130.0f, 1.0f, 0.1f, 1000.0f);
 }
 
 // Fonction pour limiter un angle dans une plage
@@ -198,8 +255,7 @@ void generateLSystem(void){
     //printf("Fin de generateLSystem, longueur finale = %zu\n", strlen(_lsystem));
 }
 
-void pushState3d(float x, float y, float z, float direction, float directionZ, float length, float thickness)
-{
+void pushState3d(float x, float y, float z, float direction, float directionZ, float length, float thickness){
     if (_stackTop >= 99)
         return;
 
@@ -213,16 +269,14 @@ void pushState3d(float x, float y, float z, float direction, float directionZ, f
     _stateStack[_stackTop].thickness = thickness;
 }
 
-TurtleState popState(void)
-{
+TurtleState popState(void){
     TurtleState state = _stateStack[_stackTop];
     if (_stackTop > -1)
         _stackTop--;
     return state;
 }
 
-void drawLine3d(float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b)
-{
+void drawLine3d(float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b){
     GLfloat vertices[6] = {
         x1, y1, z1,
         x2, y2, z2};
@@ -255,8 +309,7 @@ void drawLine3d(float x1, float y1, float z1, float x2, float y2, float z2, floa
     glBindVertexArray(0);
 }
 
-void drawLeaf3d(float x, float y, float z, float direction, float directionZ, int season)
-{
+void drawLeaf3d(float x, float y, float z, float direction, float directionZ, int season){
     float leafSize = 0.03f;
     float r = 0.0f, g = 0.8f, b = 0.0f;
     float thickness = 2.5f;
@@ -294,20 +347,92 @@ void drawLeaf3d(float x, float y, float z, float direction, float directionZ, in
     drawLine3d(xTip, yTip, zTip, xRight, yRight, zRight, thickness, r, g, b);
 }
 
-void draw(void)
-{
+#include <math.h>
+
+// Fonction pour obtenir la hauteur du terrain à une position (x, y)
+float getTerrainHeight8null(float x, float y, GLfloat* heightmap, int largeur, int hauteur, float scaleX, float scaleY) {
+    // Calculer les indices de la grille pour les coordonnées (x, y)
+    int x0 = (int)(x / scaleX);
+    int y0 = (int)(y / scaleY);
+    int x1 = x0 + 1;
+    int y1 = y0 + 1;
+
+    // S'assurer que les indices sont dans les limites de la carte de hauteur
+    if (x0 < 0) x0 = 0;
+    if (x1 >= largeur) x1 = largeur - 1;
+    if (y0 < 0) y0 = 0;
+    if (y1 >= hauteur) y1 = hauteur - 1;
+
+    // Obtenir les valeurs de hauteur aux coins de la grille
+    float h00 = heightmap[y0 * largeur + x0];
+    float h10 = heightmap[y0 * largeur + x1];
+    float h01 = heightmap[y1 * largeur + x0];
+    float h11 = heightmap[y1 * largeur + x1];
+
+    // Calculer les poids pour l'interpolation bilinéaire
+    float tx = (x - x0 * scaleX) / scaleX;
+    float ty = (y - y0 * scaleY) / scaleY;
+
+    // Interpolation bilinéaire
+    float h0 = h00 * (1 - tx) + h10 * tx;
+    float h1 = h01 * (1 - tx) + h11 * tx;
+    float height = h0 * (1 - ty) + h1 * ty;
+
+    return height;
+}
+#include <math.h>
+
+// Fonction pour obtenir la hauteur du terrain à une position (x, y)
+float getTerrainHeight(float x, float z, GLfloat* heightmap, int width, int hauteur, float scaleX, float scaleZ) {
+    // Transformer les coordonnées pour qu'elles soient toujours positives
+    float adjustedX = fabs(x);
+    float adjustedZ = fabs(z);
+    
+    // Limiter aux bornes de la grille
+    if (adjustedX >= width * scaleX) adjustedX = width * scaleX - 0.001f;
+    if (adjustedZ >= hauteur * scaleZ) adjustedZ = hauteur * scaleZ - 0.001f;
+    
+    // Calculer les indices de la grille pour les coordonnées
+    int x0 = (int)(adjustedX / scaleX);
+    int z0 = (int)(adjustedZ / scaleZ);
+    int x1 = x0 + 1;
+    int z1 = z0 + 1;
+    
+    // S'assurer que les indices sont dans les limites de la carte de hauteur
+    if (x1 >= width) x1 = width - 1;
+    if (z1 >= hauteur) z1 = hauteur - 1;
+    
+    // Obtenir les valeurs de hauteur aux coins de la grille
+    float h00 = heightmap[z0 * width + x0];
+    float h10 = heightmap[z0 * width + x1];
+    float h01 = heightmap[z1 * width + x0];
+    float h11 = heightmap[z1 * width + x1];
+    
+    // Calculer les poids pour l'interpolation bilinéaire
+    float tx = (adjustedX - x0 * scaleX) / scaleX;
+    float tz = (adjustedZ - z0 * scaleZ) / scaleZ;
+    
+    // Interpolation bilinéaire
+    float h0 = h00 * (1 - tx) + h10 * tx;
+    float h1 = h01 * (1 - tx) + h11 * tx;
+    float height = h0 * (1 - tz) + h1 * tz;
+    
+    return height;
+}
+
+void draw(void){
+    glEnable(GL_DEPTH_TEST);
     static double t0 = 0;
     double t = gl4dhGetTicks() / 1000.0, dt = t - t0;
     static float rotation = 0.0f;
     //pour qu'il grandisse
-
     /* La scène dure 5000ms = 5s*/
-    double sceneTime = gl4dhGetTicks() % 12000 / 12000.0;
+    double sceneTime = gl4dhGetTicks() % 5000 / 5000.0;
     static int lastIteration = 0;
-    int targetIteration = (int)(sceneTime * 7.0); //max d'itérations
+    int targetIteration = (int)(sceneTime * 6.0); //max d'itérations
     
     /* Ne régénérer que si une nouvelle itération est atteinte */
-    if(targetIteration > lastIteration && targetIteration <= 7) {
+    if(targetIteration > lastIteration && targetIteration <= 6) {
         lastIteration = targetIteration;
         
         /* Réinitialiser le L-system pour partir de l'axiome X */
@@ -320,7 +445,36 @@ void draw(void)
     /* Effacer l'écran */
     glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //la lumière
+     /* pour faire osciller la direction de la lumière en cercle */
+     float lightAngle = t * 0.5f; // Vitesse de rotation
+     GLfloat lightDir[3] = {
+         cosf(lightAngle),         // oscillation sur l'axe X
+         0.5f + 0.3f * sinf(t),    // légère oscillation verticale
+         sinf(lightAngle)          // oscillation sur l'axe Z
+     };
+     // Normaliser le vecteur de direction
+     float lightLength = sqrtf(lightDir[0] * lightDir[0] + lightDir[1] * lightDir[1] + lightDir[2] * lightDir[2]);
+     lightDir[0] /= lightLength;
+     lightDir[1] /= lightLength;
+     lightDir[2] /= lightLength;
+ 
 
+    glUseProgram(_pId_sol_arbre);
+
+    //envoie aux uniform vec3 lightDir, uniform vec4 color
+    glUniform3f(glGetUniformLocation(_pId_sol_arbre, "lightDir"), lightDir[0], lightDir[1], lightDir[2]);
+    glUniform4f(glGetUniformLocation(_pId_sol_arbre, "color"), 0.5f, 0.5f, 0.5f, 1.0f);
+
+    glLoadIdentity();
+     gl4duBindMatrix("modelViewMatrix");
+     gl4duLoadIdentityf();
+     gl4duScalef(1.0f, 1.0f, 1.0f);
+     gl4duTranslatef(0.0f, 0.0f,0.0f);
+     gl4duSendMatrices();
+ 
+    gl4dgDraw(_solId);
+ 
     /* Activer le shader */
     glUseProgram(_pId);
 
@@ -339,27 +493,15 @@ void draw(void)
 
     // Envoyer la direction de la lumière au shader
     //glUniform3fv(glGetUniformLocation(_pId, "lightDir"), 1, lightDir);
-    /* Faire osciller la direction de la lumière en cercle */
-    float lightAngle = t * 0.5f; // Vitesse de rotation
-    GLfloat lightDir[3] = {
-        cosf(lightAngle),         // oscillation sur l'axe X
-        0.5f + 0.3f * sinf(t),    // légère oscillation verticale
-        sinf(lightAngle)          // oscillation sur l'axe Z
-    };
-    // Normaliser le vecteur de direction
-    float lightLength = sqrtf(lightDir[0] * lightDir[0] + lightDir[1] * lightDir[1] + lightDir[2] * lightDir[2]);
-    lightDir[0] /= lightLength;
-    lightDir[1] /= lightLength;
-    lightDir[2] /= lightLength;
-
+   
     // Envoyer la direction de la lumière au shader
     glUniform3fv(glGetUniformLocation(_pId, "lightDir"), 1, lightDir);
 
-
-    /* Configurer les matrices */
+/*
+    //Configurer les matrices
     gl4duBindMatrix("modelViewMatrix");
     gl4duLoadIdentityf();
-    gl4duScalef(30.5f, 30.5f, 30.5f);
+    gl4duScalef(1.5f, 1.5f, 1.5f);
     gl4duTranslatef(0.0f, -0.8f, -2.0f);
     gl4duRotatef(rotation, 0, 1, 0);//TODO
     //gl4duRotatef(5.5f, 0, 0, 1);//TODO
@@ -367,21 +509,21 @@ void draw(void)
     gl4duSendMatrices();
 
 
-/* Activer le depth test pour le rendu 3D */
+//Activer le depth test pour le rendu 3D
 glEnable(GL_DEPTH_TEST);
 
-/* Envoyer le temps au shader */
+//Envoyer le temps au shader
 glUniform1f(glGetUniformLocation(_pId, "time"), t * 0.1f);
 glUniform1i(glGetUniformLocation(_pId, "season"), _season);
 
-    /* Interpréter le système L */
-    float x = 0.0f, y = -0.20f, z = 0.0f; /* Position de départ */
-    float direction = 90.0f; /* Direction en degrés (vers le haut) */
-    float directionZ = 0.0f; /* Direction Z (vers le haut) */
+    //Interpréter le système L
+    float x = 0.0f, y = -0.20f, z = 0.0f; //Position de départ
+    float direction = 90.0f; //Direction en degrés (vers le haut)
+    float directionZ = 0.0f; //Direction Z (vers le haut)
     float length = _baseLength * 0.4f;//TODO reduire
     float thickness = 10.0f;
 
-    _stackTop = -1; /* Réinitialiser la pile */
+    _stackTop = -1; //Réinitialisation de la pile
 
     for (int i = 0; i < strlen(_lsystem); i++)
     {
@@ -391,36 +533,36 @@ glUniform1i(glGetUniformLocation(_pId, "season"), _season);
         {
         case 'F':
         {
-                /* Calculer la nouvelle position en 3D */
+                //calcul de la nouvelle position en 3D
     float angleRadXY = direction * PI / 180.0f;
     float angleRadZ = directionZ * PI / 180.0f;
     
-    /* Utiliser les coordonnées sphériques pour le calcul 3D */
+    //des coordonnées sphériques pour le calcul 3D
     float newX = x + length * cos(angleRadXY) * cos(angleRadZ);
     float newY = y + length * sin(angleRadXY) * cos(angleRadZ);
     float newZ = z + length * sin(angleRadZ);
     
-    /* Dessiner la branche */
-    float r = 0.6f, g = 0.4f, b = 0.2f; /* Couleur marron pour le tronc/branches */
+    //pour dessiner la branche
+    float r = 0.6f, g = 0.4f, b = 0.2f; //Couleur marron pour le tronc/branches
     //on dessine la branche
     glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 0);
     drawLine3d(x, y, z, newX, newY, newZ, thickness, r, g, b);
     
-    /* Mettre à jour la position */
+    //maj jour la position
     x = newX;
     y = newY;
     z = newZ;
     
-    /* Réduire légèrement l'épaisseur pour un effet de branche qui s'affine */
+    //Réduire légèrement l'épaisseur pour un effet de branche qui s'affine
     thickness *= 0.99f;
     break;
         }
         case '+':
-            /* Tourner à gauche */
+            //Tourner à gauche
             direction += _angle;
             break;
         case '-':
-            /* Tourner à droite */
+            //Tourner à droite
             direction -= _angle;
             break;
         case '^':  // Rotation vers le haut (dans l'espace 3D)
@@ -432,15 +574,15 @@ glUniform1i(glGetUniformLocation(_pId, "season"), _season);
             directionZ = clampAngle(directionZ, -60.0f, 60.0f); //limitation de la rotation
             break;
         case '[':
-            /* Sauvegarder l'état actuel */
+            //Sauvegarder l'état actuel
             //pushState(x, y, direction, length, thickness);
             pushState3d(x, y, z, direction,directionZ, length, thickness);
-            /* Réduire la longueur pour les branches suivantes */
+            //Réduire la longueur pour les branches suivantes
             length *= _branchRatio;
             thickness *= 0.8f;
             break;
         case ']':
-            /* Restaurer l'état précédent */
+            //Restaurer l'état précédent
             if (_stackTop >= 0)
             {
                 TurtleState state = popState();
@@ -453,7 +595,7 @@ glUniform1i(glGetUniformLocation(_pId, "season"), _season);
             }
             break;
         case 'X':
-            /* Si X est suivi de caractères autres que '[', c'est une feuille */
+            //Si X est suivi de caractères autres que '[', c'est une feuille
             if (i + 1 < strlen(_lsystem) && _lsystem[i + 1] != '['){
                 //on dit que c'est une feuille
                 glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 1);
@@ -464,113 +606,118 @@ glUniform1i(glGetUniformLocation(_pId, "season"), _season);
             break;
         }
     }
+    */
+    float scaleX_terrain = 33.0f;//2.0f / (33 - 1); // Échelle en X
+    float scaleY_terrain = 33.0f;//2.0f / (33 - 1); // Échelle en Y
 
-    /* Rotation lente de l'arbre */
-    rotation += 10.0f * dt;
-
-    t0 = t;
+   //test de getTerrainHeight
+    printf("getTerrainHeight(%f, %f) = %f\n", 0.0f, -1.4f, getTerrainHeight(0.0f, -1.4f, heightmap, 33, 33, scaleX_terrain, scaleY_terrain));
+    printf("getTerrainHeight(%f, %f) = %f\n", 1.0f, -2.10f, getTerrainHeight(1.0f, -2.10f, heightmap, 33, 33, scaleX_terrain, scaleY_terrain));
     //envoie t au vertex shader
     glUniform1f(glGetUniformLocation(_pId, "temps"), t * 0.1f);
     /* Dessiner plusieurs arbres */
-    int numTrees = 3; // Nombre d'arbres à dessiner
-    float positionX[] = {0.0f, 0.6f, -0.5f}; // Positions X
-    float positionZ[] = {-2.0f, -2.5f, -2.3f}; // Positions Z
-    float rotationOffset[] = {0.0f, 30.0f, 60.0f}; // Rotations différentes
-    float scaleFactors[] = {1.0f, 0.9f, 1.1f}; // Facteurs d'échelle
+    int numTrees = 6; // Nombre d'arbres à dessiner
+    float positionX[] = {0.0f, 0.6f, -0.5f, 0.0f, 0.8f, -0.5f }; // Positions X
+    float positionZ[] = {0.0f, 0.6f, -1.8f, -2.0f, -2.5f, -2.3f }; // Positions Z
+    float rotationOffset[] = {0.01f, 0.01f, 0.01f, 0.01f, 0.01f, 0.01f}; // Rotations différentes
+    float scaleFactors[] = {1.0f, 0.9f, 0.5f, 1.0f, 1.0f,1.0f}; // Facteurs d'échelle
 
     for (int tree = 0; tree < numTrees; tree++) {
         gl4duBindMatrix("modelViewMatrix");
         gl4duLoadIdentityf();
-        gl4duScalef(30.5f * scaleFactors[tree], 30.5f * scaleFactors[tree], 30.5f * scaleFactors[tree]);
-        gl4duTranslatef(positionX[tree], -0.8f, positionZ[tree]);
-        gl4duRotatef(rotation + rotationOffset[tree], 0, 1, 0);
+        gl4duScalef(50.5f * scaleFactors[tree], 50.5f * scaleFactors[tree], 50.5f * scaleFactors[tree]);
+        gl4duTranslatef(positionX[tree],getTerrainHeight(positionX[tree], positionZ[tree], heightmap, 33, 33, scaleX_terrain, scaleY_terrain), positionZ[tree]);
+        gl4duRotatef(rotation * rotationOffset[tree], 0, 1, 0);
         gl4duBindMatrix("projectionMatrix");
         gl4duSendMatrices();
-
+        //gl4duLookAtf(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
         /* Envoyer le temps au shader avec un léger décalage */
         glUniform1f(glGetUniformLocation(_pId, "time"), t * 0.1f + tree * 0.2f);
         glUniform1i(glGetUniformLocation(_pId, "season"), _season);
 
         /* Paramètres pour cet arbre */
-        float x2 = 0.0f, y2 = -0.20f, z2 = 0.0f;
-        float direction2 = 90.0f;
-        float directionZ2 = 0.0f;
-        float length2 = _baseLength * (0.4f + tree * 0.05f);
-        float thickness2 = 10.0f;
+        float x = 0.0f, y = -0.20f, z = 0.0f;
+        float direction = 90.0f;
+        float directionZ = 0.0f;
+        float length = _baseLength * 0.4f;
+        float thickness = 10.0f;
 
         _stackTop = -1;  // Réinitialiser la pile
 
         for (int i = 0; i < strlen(_lsystem); i++) {
             char current = _lsystem[i];
-
             switch (current) {
             case 'F': {
-                float angleRadXY = direction2 * PI / 180.0f;
-                float angleRadZ = directionZ2 * PI / 180.0f;
+                float angleRadXY = direction * PI / 180.0f;
+                float angleRadZ = directionZ * PI / 180.0f;
                 
-                float newX = x2 + length2 * cos(angleRadXY) * cos(angleRadZ);
-                float newY = y2 + length2 * sin(angleRadXY) * cos(angleRadZ);
-                float newZ = z2 + length2 * sin(angleRadZ);
+                float newX = x + length * cos(angleRadXY) * cos(angleRadZ);
+                float newY = y + length * sin(angleRadXY) * cos(angleRadZ);
+                float newZ = z + length * sin(angleRadZ);
                 
-                float r = 0.6f - tree * 0.05f;
-                float g = 0.4f - tree * 0.05f;
-                float b = 0.2f;
+                float r = 0.6f, g = 0.4f, b = 0.2f;
+                //float r = 0.6f - tree * 0.05f;
+                //float g = 0.4f - tree * 0.05f;
+                //float b = 0.2f;
                 glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 0);
-                drawLine3d(x2, y2, z2, newX, newY, newZ, thickness2, r, g, b);
+                drawLine3d(x, y, z, newX, newY, newZ, thickness, r, g, b);
                 
-                x2 = newX;
-                y2 = newY;
-                z2 = newZ;
+                x = newX;
+                y = newY;
+                z = newZ;
                 
-                thickness2 *= 0.99f;
+                thickness *= 0.99f;
                 break;
             }
             case '+':
-                direction2 += _angle * (1.0f + tree * 0.02f);
+                direction += _angle * (1.0f + tree);
                 break;
             case '-':
-                direction2 -= _angle * (1.0f + tree * 0.02f);
+                direction -= _angle * (1.0f + tree );
                 break;
             case '^':
-                directionZ2 += _angle;
-                directionZ2 = clampAngle(directionZ2, -60.0f, 60.0f);
+                directionZ += _angle * (0.1f + (tree * 0.5f + 0.1f) * sin(tree + x * 0.5f));
+                directionZ = clampAngle(directionZ, -60.0f, 60.0f);
                 break;
             case '&':
-                directionZ2 -= _angle;
-                directionZ2 = clampAngle(directionZ2, -60.0f, 60.0f);
+                directionZ -= _angle * (0.1f + (tree * 0.5f + 0.1f) * sin(tree + x * 0.5f));
+                directionZ = clampAngle(directionZ, -60.0f, 60.0f);
                 break;
             case '[':
-                pushState3d(x2, y2, z2, direction2, directionZ2, length2, thickness2);
-                length2 *= _branchRatio * (1.0f + tree * 0.01f);
-                thickness2 *= 0.8f;
+                pushState3d(x, y, z, direction, directionZ, length, thickness);
+                length *= _branchRatio;// * (1.0f + tree * 0.01f);
+                thickness *= 0.8f;
                 break;
             case ']':
                 if (_stackTop >= 0) {
                     TurtleState state = popState();
-                    x2 = state.x;
-                    y2 = state.y;
-                    z2 = state.z;
-                    direction2 = state.direction;
-                    directionZ2 = state.directionZ;
-                    length2 = state.length;
-                    thickness2 = state.thickness;
+                    x = state.x;
+                    y = state.y;
+                    z = state.z;
+                    direction = state.direction;
+                    length = state.length;
+                    thickness = state.thickness;
                 }
                 break;
             case 'X':
                 if (i + 1 < strlen(_lsystem) && _lsystem[i + 1] != '[') {
                     glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 1);
-                    drawLeaf3d(x2, y2, z2, direction2, directionZ2, _season);
+                    drawLeaf3d(x, y, z, direction, directionZ, _season);
                     glUniform1i(glGetUniformLocation(_pId, "isLeaf"), 0);
                 }
                 break;
             }
         }
     }
+    /* Rotation lente de l'arbre */
+    rotation += 10.0f * dt;
+
+    t0 = t;
     /* Désactiver le shader */
     glUseProgram(0);
 
     //desactiver le depth test ici ça sert à rien
-    glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
 
     /* Mettre à jour la rotation */
     rotation += 15.0f * dt;

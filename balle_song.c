@@ -633,12 +633,11 @@ if (amplifiedVolume < 0.0f) {
 
     int numLights = 3;
     glUniform1i(glGetUniformLocation(_postProcessProgramId, "numLights"), numLights);
-    glUniform1i(glGetUniformLocation(_postProcessProgramId, "screenTexture"), 0);
+    //glUniform1i(glGetUniformLocation(_postProcessProgramId, "screenTexture"), 0);
 
     /* Paramètres optionnels pour les effets */
     glUniform1f(glGetUniformLocation(_postProcessProgramId, "time"), t);
     glUniform2f(glGetUniformLocation(_postProcessProgramId, "resolution"), _wW, _wH);
-
     /* Activer la texture générée */
     // glActiveTexture(GL_TEXTURE0);
     // glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
