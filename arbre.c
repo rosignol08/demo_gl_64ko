@@ -467,11 +467,11 @@ void draw(void){
     glUniform4f(glGetUniformLocation(_pId_sol_arbre, "color"), 0.5f, 0.5f, 0.5f, 1.0f);
 
     glLoadIdentity();
-     gl4duBindMatrix("modelViewMatrix");
-     gl4duLoadIdentityf();
-     gl4duScalef(1.0f, 1.0f, 1.0f);
-     gl4duTranslatef(0.0f, 0.0f,0.0f);
-     gl4duSendMatrices();
+    gl4duBindMatrix("modelViewMatrix");
+    gl4duLoadIdentityf();
+    gl4duScalef(1.0f, 1.0f, 1.0f);
+    gl4duTranslatef(0.0f, 0.0f,0.0f);
+    gl4duSendMatrices();
  
     gl4dgDraw(_solId);
  
@@ -611,8 +611,8 @@ glUniform1i(glGetUniformLocation(_pId, "season"), _season);
     float scaleY_terrain = 33.0f;//2.0f / (33 - 1); // Échelle en Y
 
    //test de getTerrainHeight
-    printf("getTerrainHeight(%f, %f) = %f\n", 0.0f, -1.4f, getTerrainHeight(0.0f, -1.4f, heightmap, 33, 33, scaleX_terrain, scaleY_terrain));
-    printf("getTerrainHeight(%f, %f) = %f\n", 1.0f, -2.10f, getTerrainHeight(1.0f, -2.10f, heightmap, 33, 33, scaleX_terrain, scaleY_terrain));
+    //printf("getTerrainHeight(%f, %f) = %f\n", 0.0f, -1.4f, getTerrainHeight(0.0f, -1.4f, heightmap, 33, 33, scaleX_terrain, scaleY_terrain));
+    //printf("getTerrainHeight(%f, %f) = %f\n", 1.0f, -2.10f, getTerrainHeight(1.0f, -2.10f, heightmap, 33, 33, scaleX_terrain, scaleY_terrain));
     //envoie t au vertex shader
     glUniform1f(glGetUniformLocation(_pId, "temps"), t * 0.1f);
     /* Dessiner plusieurs arbres */
