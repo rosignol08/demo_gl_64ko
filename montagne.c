@@ -168,8 +168,6 @@ static GLuint _sphereId = 0;
 static GLuint _fboId = 0;
 static GLuint _texId = 0;
 
-/* Variables pour la position de la caméra, le point regardé et le vecteur up */
-static GLfloat eyeX = 0.0f, eyeY = 0.0f, eyeZ = 0.0f;
 float test = 2.0f;
 /* booléen pour bruit ou pas de bruit */
 // static int _noise = 0;
@@ -276,27 +274,14 @@ void draw(void)
     static double t0 = 0.0;
     double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
     t0 = t;
-
-    // glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
-    // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _texId, 0);
-    // gl4dgDraw(_quadId);
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     /* effacement du buffer de couleur et de profondeur */
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     /* activation du programme _pId */
     glUseProgram(_pId);
-    /* lier la matrice de projection */
-    // gl4duBindMatrix("projectionMatrix");
     /* lier la matrice vue */
     gl4duBindMatrix("viewMatrix");
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
-    /* Composer la matrice vue avec la caméra */
-    // gl4duLookAtf(0.0f, 2.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-
-    eyeX = 0.50f, eyeY = 0.50f, eyeZ = 0.0f;
-
     gl4duLookAtf(0.0f, 3.5f, test, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
     // eyeY += 0.0005f;
     test += 0.005f;
@@ -305,7 +290,7 @@ void draw(void)
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
     /* Mise à l'échelle du terrain */
-    gl4duScalef(8.0f, 4.0f, 8.0f);
+    gl4duScalef(4.0f, 1.0f, 3.0f);
     /* Envoyer les matrices */
     gl4duSendMatrices();
 
@@ -319,7 +304,7 @@ void draw(void)
     glUniform4f(glGetUniformLocation(_pId, "l0speculaire"), 0.8f, 0.8f, 0.80f, 1.0f); // Bleu clair brillant
 
     /* lumière 1 - rotation circulaire */
-    glUniform4f(glGetUniformLocation(_pId, "Lp1"), 0.0f, sin(-1 + t * 0.3f) * 8.0f, -3.0f, 1.0f);
+    glUniform4f(glGetUniformLocation(_pId, "Lp1"), 0.0f, sin(-1 + t * 2.3f) * 8.0f, -3.0f, 1.0f);
     glUniform4f(glGetUniformLocation(_pId, "l1diffus"), 0.90f, 0.90f, 0.90f, 1.0f);
     glUniform4f(glGetUniformLocation(_pId, "l1speculaire"), 0.6f, 0.6f, 0.60f, 1.0f); // couleur du reflet
 
@@ -334,16 +319,9 @@ void draw(void)
     /* Activer les textures de bruit pour le terrain et le ciel */
     useNoiseTextures(_pId, 0);
 
-    /* Dessiner le terrain */
-    // gl4dgDraw(_gridId);
-
-    /* Use proper culling for the terrain to improve performance */
-    // glCullFace(GL_BACK);
-
     glEnable(GL_DEPTH_TEST); // faut activer ça
     glEnable(GL_CULL_FACE);
     gl4dgDraw(_gridId);
-    // glEnable(GL_DEPTH_TEST);
 
     /* Configurer la sphère pour le ciel */
     gl4duBindMatrix("modelMatrix");
@@ -371,24 +349,3 @@ void draw(void)
     /* Mise à jour de l'angle pour animation */
     angle += 18.0f * dt;
 }
-
-/* Nettoyage à la sortie */
-// void quit(void)
-//{
-//     if (_fboId)
-//     {
-//         glDeleteFramebuffers(1, &_fboId);
-//         _fboId = 0;
-//     }
-//     if (_texId)
-//     {
-//         glDeleteTextures(1, &_texId);
-//         _texId = 0;
-//     }
-//
-//     /* Libérer les textures de bruit */
-//     freeNoiseTextures();
-//
-//     /* Nettoyer GL4Dummies */
-//     gl4duClean(GL4DU_ALL);
-// }

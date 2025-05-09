@@ -13,7 +13,7 @@
 #include <math.h>
 
 #define MAX_NEIGHBOURS 32
-#define HASH_SIZE 2500
+#define HASH_SIZE 2000
 #define CELL_SIZE 0.1f  //taille des cellules pour la grille spatiale
 
 //pour la gravitée radiale
@@ -733,7 +733,7 @@ void init(void){
     _pId_particules = gl4duCreateProgram("<vs>shaders/parti.vs", "<fs>shaders/parti.fs", NULL);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
-    mobile_init(2500);
+    mobile_init(2000);
     //les rectangles
     rect_init_list(11); //la liste de rectangles
     // 0.99f droite -0.99f gauche
@@ -756,7 +756,7 @@ void init(void){
     glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
 
     //initiation avec une taille fixe
-    glBufferData(GL_ARRAY_BUFFER, 2500 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 2000 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
 
     //configuration des attributs (position, rayon, couleur)
     glEnableVertexAttribArray(0); // position (vec2)
@@ -772,6 +772,9 @@ void init(void){
 
 
 void draw(void){
+    static double t0 = 0.0;
+    double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
+    t0 = t;
 	/* effacer le buffer de couleur (image) et le buffer de profondeur d'OpenGL */
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -780,8 +783,11 @@ void draw(void){
     mobile_simu();
 	mobile_draw();
     rect_draw_all();
-    update_fish_positions();
-    oval_draw_all();
+    //pour faire deux scene une avec et une sans poisson
+    if (t0 < 10.0f){
+        update_fish_positions();
+        oval_draw_all();
+    }
     /* n'utiliser aucun programme GPU (pas nécessaire) */
     glUseProgram(0);
 }
