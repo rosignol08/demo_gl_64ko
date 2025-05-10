@@ -346,11 +346,12 @@ void drawLeaf3d(float x, float y, float z, float direction, float directionZ)
     drawLine3d(xTip, yTip, zTip, xLeft, yLeft, zLeft, thickness, r, g, b);
     drawLine3d(xTip, yTip, zTip, xRight, yRight, zRight, thickness, r, g, b);
 }
-void draw(void)
-{
+void draw(void){
+    static double t0 = 0.0;
+    double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
+    t0 = t;
     glEnable(GL_DEPTH_TEST);
-    static double t0 = 0;
-    double t = gl4dhGetTicks() / 1000.0, dt = t - t0;
+    
     static float rotation = 0.0f;
     // pour qu'il grandisse
     /* La scène dure 5000ms = 5s*/
@@ -495,8 +496,6 @@ void draw(void)
     }
     /* Rotation lente de l'arbre */
     rotation += 10.0f * dt;
-
-    t0 = t;
     /* Désactiver le shader */
     glUseProgram(0);
 

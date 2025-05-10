@@ -434,8 +434,8 @@ if (amplifiedVolume < 0.0f) {
     
     // si il est actif, on le fait emissif
     if (activeWall == 2) {
-        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
-        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+        //glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
     } else {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
         glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);
@@ -460,8 +460,8 @@ if (amplifiedVolume < 0.0f) {
     gl4duSendMatrices();
     // on le fait emissif si c'est le mur actif
     if (activeWall == 3) {
-        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 1);
-        glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
+        glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
+        //glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, emissiveColor);
     } else {
         glUniform1i(glGetUniformLocation(_pId, "isEmissive"), 0);
         glUniform4fv(glGetUniformLocation(_pId, "ballColor"), 1, couleur_mur);

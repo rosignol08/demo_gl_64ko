@@ -17,6 +17,7 @@ static GLuint _quad = 0;
 static GLuint _textTexId1 = 0;
 static GLuint _textTexId2 = 0;
 static GLuint _textTexId3 = 0;
+static GLuint _textTexId4 = 0;
 
 static GLfloat t0 = -1;
 GLfloat t;
@@ -36,6 +37,26 @@ void credits(int state) {
       glDeleteTextures(1, &_textTexId1);
       _textTexId1 = 0;
     }
+    if(_textTexId2) {
+      glDeleteTextures(1, &_textTexId2);
+      _textTexId2 = 0;
+    }
+    if(_textTexId3) {
+      glDeleteTextures(1, &_textTexId3);
+      _textTexId3 = 0;
+    }
+    if(_textTexId4) {
+      glDeleteTextures(1, &_textTexId4);
+      _textTexId4 = 0;
+    }
+    if(_quad) {
+      glDeleteVertexArrays(1, &_quad);
+      _quad = 0;
+    }
+    if(_pId) {
+      glDeleteProgram(_pId);
+      _pId = 0;
+    }
     return;
   
   case GL4DH_UPDATE_WITH_AUDIO:
@@ -48,14 +69,14 @@ void credits(int state) {
   }
 }
 
-/*!\brief création d'une texture avec du texte. */
+//texture avec du texte
 static void initText(GLuint * ptId, const char * text) {
   static int firstTime = 1;
   SDL_Color c = {255, 165, 0, 255}; // Couleur orange feu
   SDL_Surface * d, * s;
   TTF_Font * font = NULL;
   if(firstTime) {
-    /* initialisation de la bibliothèque SDL2 ttf */
+    //init de la bibliothèque SDL2 ttf
     if(TTF_Init() == -1) {
       fprintf(stderr, "TTF_Init: %s\n", TTF_GetError());
       exit(2);
@@ -63,7 +84,7 @@ static void initText(GLuint * ptId, const char * text) {
     firstTime = 0;
   }
   if(*ptId == 0) {
-    /* initialisation de la texture côté OpenGL */
+    //initialisation de la texture côté OpenGL
     glGenTextures(1, ptId);
     glBindTexture(GL_TEXTURE_2D, *ptId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -72,7 +93,7 @@ static void initText(GLuint * ptId, const char * text) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   }
   
-  /* Essayer les polices dans l'ordre de préférence */
+  //test des polices dispo
   const char* fontPaths[] = {
     "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
     "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
@@ -81,7 +102,7 @@ static void initText(GLuint * ptId, const char * text) {
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
   };
   
-  /* Essayer chaque police jusqu'à en trouver une qui fonctionne */
+  //Essayer chaque police jusqu'à en trouver une qui fonctionne
   for (int i = 0; i < sizeof(fontPaths) / sizeof(fontPaths[0]); i++) {
     font = TTF_OpenFont(fontPaths[i], 128);
     if (font) {
@@ -95,19 +116,19 @@ static void initText(GLuint * ptId, const char * text) {
     return;
   }
   
-  /* création d'une surface SDL avec le texte */
+  //création d'une surface SDL avec le texte
   d = TTF_RenderUTF8_Blended_Wrapped(font, text, c, 2048);
   if(d == NULL) {
     TTF_CloseFont(font);
     fprintf(stderr, "Erreur lors du TTF_RenderText\n");
     return;
   }
-  /* copie de la surface SDL vers une seconde aux spécifications qui correspondent au format OpenGL */
+  //copie de la surface SDL vers une seconde aux spécifications qui correspondent au format OpenGL
   s = SDL_CreateRGBSurface(0, d->w, d->h, 32, R_MASK, G_MASK, B_MASK, A_MASK);
   assert(s);
   SDL_BlitSurface(d, NULL, s, NULL);
   SDL_FreeSurface(d);
-  /* transfert vers la texture OpenGL */
+  //transfert vers la texture OpenGL
   glBindTexture(GL_TEXTURE_2D, *ptId);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, s->w, s->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, s->pixels);
   fprintf(stderr, "Dimensions de la texture : %d %d\n", s->w, s->h);
@@ -120,8 +141,31 @@ void init(void){
   _pId = gl4duCreateProgram("<vs>shaders/credits.vs", "<fs>shaders/credits.fs", NULL);
   _quad = gl4dgGenQuadf();
   
-  /* Initialisation du texte de crédits */
-  initText(&_textTexId1, 
+  //les texte
+  if (t0 < 10.0f){
+    initText(&_textTexId1,
+      "Au coeur de la Chine, au sommet d’une cascade,\n"
+      "existe une porte légendaire appelée Longmen.\n"
+      "Là, le fleuve Jaune traverse une faille étroite entre les montagnes,\n"
+      "à la frontière du Shanxi et du Shaanxi.\n"
+      "C’est ici que des centaines de carpes, chaque année,\n"
+      "tentent de remonter le courant pour franchir la porte\n"
+      "et devenir dragons.");
+  }
+  else if (t0 < 40.0f){
+    initText(&_textTexId2,
+      "Une carpe, guidée par le rêve de devenir dragon, se lança dans l’ascension du fleuve.\n"
+      "Nuit et jour, elle lutta contre les remous et le courant, échouant toujours à franchir la cascade sacrée.\n"
+      "Les jours passaient, mais elle refusait d’abandonner.");
+  }
+  else if (t0 < 60.0f){
+  initText(&_textTexId3,
+    "À bout de forces, la carpe murmura une prière à l’esprit du fleuve.\n"
+    "Le courant ralentit, et l’eau prit une teinte dorée.\n"
+    "Guidée par l’esprit, la carpe s’élança une dernière fois..."
+  );}
+  else {
+  initText(&_textTexId4,
          "EMBER\n\n\n"
          "Une démo 64ko qui explore le thème du feu à travers diverses animations\n"
          "et effets visuels.\n\n\n"
@@ -135,23 +179,7 @@ void init(void){
          "REMERCIEMENTS:\n"
          "API8 - Université Paris 8\n"
          "Farès BELHADJ\n\n\n"
-         "Avril 2025");
-  initText(&_textTexId2,
-         "EMBER\n\n\n"
-         "Une démo 64ko qui explore le thème du feu à travers diverses animations\n"
-         "et effets visuels.\n\n\n"
-         "MUSIQUE:\n"
-         "\"Embers\"\n"
-         "\"Musique originale créée par Dounia HULLOT avec GarageBand.\"\n"
-  );
-  initText(&_textTexId3,
-         "EMBER\n\n\n"
-         "Une démo 64ko qui explore le thème du feu à travers diverses animations\n"
-         "et effets visuels.\n\n\n"
-         "MUSIQUE:\n"
-         "\"Embers\"\n"
-         "\"Musique originale créée par Dounia HULLOT avec GarageBand.\"\n"
-  );
+         "Avril 2025");}
   t0 = -1;
 
 }

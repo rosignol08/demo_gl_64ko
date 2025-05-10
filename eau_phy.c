@@ -784,7 +784,7 @@ void draw(void){
 	mobile_draw();
     rect_draw_all();
     //pour faire deux scene une avec et une sans poisson
-    if (t0 < 10.0f){
+    if (!(t0 < 50.0f)){
         update_fish_positions();
         oval_draw_all();
     }
@@ -953,7 +953,9 @@ void mobile_simu(void) {
     }
 
     rect_collide_all(_mobiles, _nb_mobiles, e);
-    oval_collide_all(_mobiles, _nb_mobiles, e);
+    if (!(t0 < 50.0f)){
+        oval_collide_all(_mobiles, _nb_mobiles, e);
+    }
 }
 
 

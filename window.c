@@ -27,23 +27,22 @@ static void keydown(int keycode);
  * ce tableau se termine toujours par l'élémént {0, NULL, NULL,
  * NULL} */
 static GL4DHanime _animations[] = {
-  { 1000, noir, NULL, NULL},
-  { 3000, noir, intro_arabesque, fondu},
-  { 2000, intro_arabesque, NULL, NULL },
-  { 1000, intro_arabesque, montagne, fondu },
-  { 4000, montagne, NULL, NULL },
-  { 7000, montagne, noir, pixels },
-  { 2000, noir, NULL, NULL },
-  { 2000, noir, eau_scene, fondu },
-  { 10000, eau_scene, NULL, NULL }, 
-  { 5000, eau_scene, couleur_du_mur, fondui }, 
-  { 2000, couleur_du_mur, NULL, NULL },
-  { 5000, couleur_du_mur, balle_song, pixels },
-  { 9000, balle_song, NULL, NULL },
-  { 3000, balle_song, noir, fondu },
-  { 12000, arbre, NULL, NULL },
-  { 2000, arbre, vert, fondu },
-  { 2000, vert, NULL, NULL },
+  { 13000, credits, NULL, NULL},//intro texte
+  { 4000, intro_arabesque, NULL, NULL },//dessin fin : 17s
+  { 2000, intro_arabesque, eau_scene, fondu },
+  { 9000, eau_scene, NULL, NULL },//28 sec
+  { 9000, credits, NULL, NULL},//38 sec jours et nuit texte
+  { 2000, credits, montagne, fondui},
+  { 9000, montagne, NULL, NULL },//48 sec
+  { 15000, credits, NULL, NULL },//1:03 sec esprit de l'eau
+  { 8000, balle_song, NULL, NULL },
+  { 2000, balle_song, arbre, pixels },
+  { 10000, arbre, NULL, NULL },//1:23 arbre fleuri
+  { 19000, eau_scene, NULL, NULL },//eau reussi 1:43
+  { 1000, eau_scene, blanc, NULL },//transition flash jsp
+  { 10000, vert, NULL, NULL },//1:53 TODO: faire la scene porte_sacree
+  { 10000, credits, NULL, NULL}, //txt4
+  { 10000, credits, NULL, NULL}, //credits de fin
   { 0, NULL, NULL, NULL } /* Toujours laisser à la fin */
 };
 
