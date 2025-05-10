@@ -18,6 +18,7 @@ static GLuint _textTexId1 = 0;
 static GLuint _textTexId2 = 0;
 static GLuint _textTexId3 = 0;
 static GLuint _textTexId4 = 0;
+static GLuint _textTexId5 = 0;
 
 static GLfloat t0 = -1;
 GLfloat t;
@@ -49,6 +50,10 @@ void credits(int state) {
       glDeleteTextures(1, &_textTexId4);
       _textTexId4 = 0;
     }
+    if(_textTexId5) {
+      glDeleteTextures(1, &_textTexId5);
+      _textTexId5 = 0;
+    }
     if(_quad) {
       glDeleteVertexArrays(1, &_quad);
       _quad = 0;
@@ -72,7 +77,7 @@ void credits(int state) {
 //texture avec du texte
 static void initText(GLuint * ptId, const char * text) {
   static int firstTime = 1;
-  SDL_Color c = {255, 165, 0, 255}; // Couleur orange feu
+  SDL_Color c = {229, 229, 229, 255}; // Couleur orange feu
   SDL_Surface * d, * s;
   TTF_Font * font = NULL;
   if(firstTime) {
@@ -104,7 +109,7 @@ static void initText(GLuint * ptId, const char * text) {
   
   //Essayer chaque police jusqu'à en trouver une qui fonctionne
   for (int i = 0; i < sizeof(fontPaths) / sizeof(fontPaths[0]); i++) {
-    font = TTF_OpenFont(fontPaths[i], 128);
+    font = TTF_OpenFont(fontPaths[i], 108);
     if (font) {
       fprintf(stderr, "Police trouvée: %s\n", fontPaths[i]);
       break;
@@ -142,30 +147,31 @@ void init(void){
   _quad = gl4dgGenQuadf();
   
   //les texte
-  if (t0 < 10.0f){
+  
     initText(&_textTexId1,
       "Au coeur de la Chine, au sommet d’une cascade,\n"
-      "existe une porte légendaire appelée Longmen.\n"
-      "Là, le fleuve Jaune traverse une faille étroite entre les montagnes,\n"
-      "à la frontière du Shanxi et du Shaanxi.\n"
-      "C’est ici que des centaines de carpes, chaque année,\n"
-      "tentent de remonter le courant pour franchir la porte\n"
-      "et devenir dragons.");
-  }
-  else if (t0 < 40.0f){
+      "se trouve une porte appelée Longmen.\n"
+      "C’est ici que des centaines de carpes,\n"
+      "tentent de remonter le courant pour la franchir et devenir des dragons.\n"
+      );
+  
     initText(&_textTexId2,
-      "Une carpe, guidée par le rêve de devenir dragon, se lança dans l’ascension du fleuve.\n"
-      "Nuit et jour, elle lutta contre les remous et le courant, échouant toujours à franchir la cascade sacrée.\n"
+      "Une carpe, se lança dans l’ascension du fleuve.\n"
+      "Nuit et jour, elle lutta contre les remous et le courant,\n"
+      "échouant toujours à franchir la cascade sacrée.\n"
       "Les jours passaient, mais elle refusait d’abandonner.");
-  }
-  else if (t0 < 60.0f){
   initText(&_textTexId3,
     "À bout de forces, la carpe murmura une prière à l’esprit du fleuve.\n"
     "Le courant ralentit, et l’eau prit une teinte dorée.\n"
     "Guidée par l’esprit, la carpe s’élança une dernière fois..."
-  );}
-  else {
-  initText(&_textTexId4,
+  );
+    initText(&_textTexId4,
+      "Elle franchit la porte, se transformant en dragon.\n"
+      "L’esprit du fleuve lui offrit un souffle de vie éternelle.\n"
+      "La carpe, devenue dragon, s’envola dans le ciel, illuminant le monde de sa lumière dorée.");
+  
+  
+  initText(&_textTexId5,
          "EMBER\n\n\n"
          "Une démo 64ko qui explore le thème du feu à travers diverses animations\n"
          "et effets visuels.\n\n\n"
@@ -179,7 +185,7 @@ void init(void){
          "REMERCIEMENTS:\n"
          "API8 - Université Paris 8\n"
          "Farès BELHADJ\n\n\n"
-         "Avril 2025");}
+         "Avril 2025");
   t0 = -1;
 
 }
@@ -189,7 +195,7 @@ void draw(void) {
   double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
   t0 = t;
     
-    glClearColor(0.05, 0.0, 0.0, 1); // Fond noir avec légère teinte rouge
+    glClearColor(0.0, 0.0, 0.0, 1); //fond noir
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     glDisable(GL_DEPTH_TEST);
@@ -197,17 +203,25 @@ void draw(void) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     glUseProgram(_pId);
-    if (t0 < 10.0f){
+    if (t0 < 17.0f){
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, _textTexId1);  
     }
-    else if (t0 < 30.0f){
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, _textTexId2);  
-    }
     else if (t0 < 40.0f){
       glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, _textTexId3);  
+      glBindTexture(GL_TEXTURE_2D, _textTexId2);
+    }
+    else if (t0 < 65.0f){
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, _textTexId3);
+    }
+    else if (t0 < 123.0f){
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, _textTexId4);
+    }
+    else {
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, _textTexId5);
     }
     glUniform1i(glGetUniformLocation(_pId, "inv"), 1);
     glUniform1i(glGetUniformLocation(_pId, "tex"), 0);
@@ -217,11 +231,11 @@ void draw(void) {
     gl4duLoadIdentityf();
     
     // Position les crédits au centre avec une légère animation 
-    gl4duScalef(0.8, 0.8, 1.0);
-    gl4duTranslatef(0.0, 0.0, -2.0);
+    gl4duScalef(0.90, 0.90, 1.0);
+    gl4duTranslatef(0.0, 0.10, -2.30);
     
     gl4duSendMatrices();
     gl4dgDraw(_quad);
-    printf("t = %f\n", t);
+    printf("t = %f\n", t0);
     glUseProgram(0);
 }

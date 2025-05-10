@@ -713,20 +713,12 @@ void compute_sph_forces() {
 /* initialise des paramètres GL et GL4D */
 void init(void){        
         _quad = gl4dgGenQuadf();
-        /* activer la synchronisation verticale */
-        SDL_GL_SetSwapInterval(1);
         /* set la couleur d'effacement OpenGL */
         TIME_SCALE = 10.0f;
         vitesse = 10.0f;
         _g.y = -9.81f;
 	_quad = gl4dgGenQuadf();
-	/* activer la synchronisation verticale */
-	SDL_GL_SetSwapInterval(1);
-	/* set la couleur d'effacement OpenGL */
-    TIME_SCALE = 10.0f;
-    vitesse = 10.0f;
-    _g.y = -9.81f;
-    
+
     /* créer un programme GPU pour OpenGL (en GL4D) */
     _pId = gl4duCreateProgram("<vs>shaders/identity.vs", "<fs>shaders/calculs.fs", NULL);
     /* créer un programme GPU pour OpenGL (en GL4D) */
@@ -782,6 +774,29 @@ void draw(void){
 	glUseProgram(_pId);
     mobile_simu();
 	mobile_draw();
+    glUseProgram(_pId_particules); //shader pour les particules
+    if (!(t0 < 83.0f)){
+        // Sélectionner une balle aléatoire comme point de départ
+        int randomStartIndex = rand() % (_nb_mobiles - 5 > 0 ? _nb_mobiles - 5 : 1);
+        
+        // Changer la couleur de la balle sélectionnée et des 5 suivantes
+        for (int offset = 0; offset < 6; offset++) {
+            int currentIndex = randomStartIndex + offset;
+            
+            // Vérifier que l'index ne dépasse pas le nombre de balles
+            if (currentIndex < _nb_mobiles) {
+                // Changer uniquement si ce n'est pas déjà une balle rouge
+                if (_mobiles[currentIndex].color[0] < 0.1f) {
+                    _mobiles[currentIndex].color[0] = 1.0f;  // Rouge
+                    _mobiles[currentIndex].color[1] = 0.0f;  // Pas de vert
+                    _mobiles[currentIndex].color[2] = 0.0f;  // Pas de bleu
+                }
+            }
+        }
+    }
+    glBindVertexArray(particle_vao);
+    glDrawArrays(GL_POINTS, 0, _nb_mobiles);
+    glBindVertexArray(0);
     rect_draw_all();
     //pour faire deux scene une avec et une sans poisson
     if (!(t0 < 50.0f)){
@@ -848,7 +863,13 @@ void mobile_simu(void) {
     // Précalculer les valeurs constantes
     float dt_time_scale = dt * TIME_SCALE;
     float dt_vitesse = dt * vitesse;
-    float max_speed_squared = 0.50f * 0.50f;
+    float max_speed_squared = 0.0f;
+    if (t0 < 83.0f){
+        max_speed_squared = 2.0f;
+    }
+    else {
+        max_speed_squared = 0.50f;
+    }
     float min_distance_squared = MIN_DISTANCE * MIN_DISTANCE;
 
     for (int i = 0; i < _nb_mobiles; ++i) {
@@ -993,9 +1014,4 @@ void mobile_draw(void){
     glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float) * 7 * _nb_mobiles, tmp);
     free(tmp);
-
-    glUseProgram(_pId_particules); // ton shader pour les particules
-    glBindVertexArray(particle_vao);
-    glDrawArrays(GL_POINTS, 0, _nb_mobiles);
-    glBindVertexArray(0);
 }

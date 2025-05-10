@@ -134,7 +134,7 @@ void draw(void) {
 
     //desactivation du shader
     glUseProgram(0);
-    printf("Temps écoulé: %.2f secondes\n", t1);
+    printf("Temps écoulé: %.2f secondes\n", t0);
     //maj du temps
     t += dt;
 }

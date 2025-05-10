@@ -17,6 +17,7 @@
 /* ---- Début du code de noise.c ---- */
 
 static GLuint permTexId = 0, gradTexId = 0;
+static GLuint permTexId2 = 0, gradTexId2 = 0;
 static int perm[256];
 static int grad3[16][3];
 static int grad4[32][4];
@@ -67,23 +68,21 @@ static void initRandomPermAndGrad(void)
 }
 
 /* Fonctions de gestion du bruit de Perlin */
-static void initNoiseTextures(void)
-{
+static void initNoiseTextures(int taille, GLuint *permTexId_ptr, GLuint *gradTexId_ptr) {
     initRandomPermAndGrad();
     int i, j, k, i8;
     GLubyte *buffer, v;
 
-    if (permTexId || gradTexId)
+    // Vérifiez que les ID ne sont pas déjà initialisés
+    if (*permTexId_ptr || *gradTexId_ptr)
         return;
 
     buffer = malloc((1 << 18) /* 4 * 256 * 256 */ * sizeof *buffer);
     assert(buffer);
 
-    for (i = 0; i < 128; i++)
-    {
+    for (i = 0; i < taille; i++) {
         i8 = i << 7;
-        for (j = 0; j < 128; j++)
-        {
+        for (j = 0; j < taille; j++) {
             k = (i8 + j) << 2;
             v = perm[(j + perm[i]) & 0xFF];
             buffer[k + 0] = (grad4[v & 0x1F][0] << 6) + 64;
@@ -93,16 +92,16 @@ static void initNoiseTextures(void)
         }
     }
     glActiveTexture(GL_TEXTURE2);
-    glGenTextures(1, &gradTexId);
-    glBindTexture(GL_TEXTURE_2D, gradTexId);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    glGenTextures(1, permTexId_ptr);  // Utilisez le pointeur
+    glBindTexture(GL_TEXTURE_2D, *permTexId_ptr);  // Déréférencez
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, taille, taille, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
-    for (i = 0; i < 256; i++)
+    for (i = 0; i < taille*2; i++)
     {
         i8 = i << 8;
-        for (j = 0; j < 256; j++)
+        for (j = 0; j < taille*2; j++)
         {
             k = (i8 + j) << 2;
             buffer[k + 3] = (v = perm[(j + perm[i]) & 0xFF]);
@@ -112,18 +111,17 @@ static void initNoiseTextures(void)
         }
     }
     glActiveTexture(GL_TEXTURE1);
-    glGenTextures(1, &permTexId);
-    glBindTexture(GL_TEXTURE_2D, permTexId);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    glGenTextures(1, gradTexId_ptr);  // Utilisez le pointeur
+    glBindTexture(GL_TEXTURE_2D, *gradTexId_ptr);  // Déréférencez
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, taille*2, taille*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
     glActiveTexture(GL_TEXTURE0);
 
     free(buffer);
 }
 
-static void useNoiseTextures(GLuint pid, int shift)
-{
+static void useNoiseTextures(GLuint pid, int shift, GLuint permTexId, GLuint gradTexId){
     glActiveTexture(GL_TEXTURE1 + shift);
     glBindTexture(GL_TEXTURE_2D, gradTexId);
     glActiveTexture(GL_TEXTURE0 + shift);
@@ -142,14 +140,6 @@ static void unuseNoiseTextures(int shift)
     glActiveTexture(GL_TEXTURE0);
 }
 
-// static void freeNoiseTextures(void)
-//{
-//     glDeleteTextures(1, &gradTexId);
-//     glDeleteTextures(1, &permTexId);
-//     permTexId = 0;
-//     gradTexId = 0;
-// }
-
 /* ---- Fin du code provenant de noise.c ---- */
 
 /* Prototypes des fonctions statiques contenues dans ce fichier C */
@@ -159,6 +149,7 @@ static void draw(void);
 // static int _ww = 1280, _wh = 960;
 /*!\brief identifiant du (futur) GLSL program */
 static GLuint _pId = 0;
+static GLuint _riviere_pId = 0;
 /*!\brief identifiant pour une géométrie GL4D */
 static GLuint _quadId = 0;
 static GLuint _gridId = 0;
@@ -188,6 +179,11 @@ void montagne(int state)
             glDeleteProgram(_pId);
             _pId = 0;
         }
+        if (_riviere_pId)
+        {
+            glDeleteProgram(_riviere_pId);
+            _riviere_pId = 0;
+        }
         if (_gridId)
         {
             glDeleteVertexArrays(1, &_gridId);
@@ -212,6 +208,16 @@ void montagne(int state)
         {
             glDeleteTextures(1, &gradTexId);
             gradTexId = 0;
+        }
+        if (permTexId2)
+        {
+            glDeleteTextures(1, &permTexId2);
+            permTexId2 = 0;
+        }
+        if (gradTexId2)
+        {
+            glDeleteTextures(1, &gradTexId2);
+            gradTexId2 = 0;
         }
         if (_fboId)
         {
@@ -239,13 +245,14 @@ void montagne(int state)
 void init(void)
 {
     _pId = gl4duCreateProgram("<vs>shaders/lum_montagne.vs", "<fs>shaders/lum_montagne.fs", NULL);
+    _riviere_pId = gl4duCreateProgram("<vs>shaders/riviere.vs", "<fs>shaders/riviere.fs", NULL);
     /* générer le terrain */
     GLfloat *heightmap = gl4dmTriangleEdge(33, 33, 0.6f);
     /* Créer une grid */
     _gridId = gl4dgGenGrid2dFromHeightMapf(33, 33, heightmap);
     free(heightmap);
     _sphereId = gl4dgGenSpheref(33, 33);
-    _quadId = gl4dgGenQuadf();
+    _quadId = gl4dgGenCubef();
     /* Set de la couleur (RGBA) d'effacement OpenGL */
     glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
     /* activation du test de profondeur afin de prendre en compte la
@@ -256,7 +263,14 @@ void init(void)
     gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
     gl4duGenMatrix(GL_FLOAT, "modelMatrix");
     gl4duGenMatrix(GL_FLOAT, "viewMatrix");
-    initNoiseTextures();
+    
+    gl4duBindMatrix("projectionMatrix");
+    gl4duLoadIdentityf();
+    gl4duPerspectivef(170.0f, 1.0f, 0.1f, 1000.0f);
+
+    initNoiseTextures(128, &permTexId, &gradTexId);
+    initNoiseTextures(128, &permTexId2, &gradTexId2);
+
 
     glGenFramebuffers(1, &_fboId);
     glGenTextures(1, &_texId);
@@ -317,11 +331,11 @@ void draw(void)
     glUniform4f(glGetUniformLocation(_pId, "sspeculaire"), 0.1f, 0.1f, 0.1f, 0.20f);
 
     /* Activer les textures de bruit pour le terrain et le ciel */
-    useNoiseTextures(_pId, 0);
+    useNoiseTextures(_pId, 0, permTexId, gradTexId);
 
     glEnable(GL_DEPTH_TEST); // faut activer ça
     glEnable(GL_CULL_FACE);
-    gl4dgDraw(_gridId);
+    //gl4dgDraw(_gridId);
 
     /* Configurer la sphère pour le ciel */
     gl4duBindMatrix("modelMatrix");
@@ -339,12 +353,39 @@ void draw(void)
 
     /* Réactiver le culling */
     glEnable(GL_CULL_FACE);
-
-    /* Désactiver les textures de bruit */
     unuseNoiseTextures(0);
+
+    glUseProgram(_riviere_pId);
+    useNoiseTextures(_riviere_pId, 0, permTexId2, gradTexId2);
+
+    //on va dessiner le quad comme une rivière inclinée sur le terrain
+    gl4duBindMatrix("modelMatrix");
+    gl4duLoadIdentityf();
+    gl4duScalef(1.0f, 0.20f, 2.0f);
+    gl4duTranslatef(0.0f, 1.0f, -1.0f);
+    gl4duRotatef(180.0f, 0.0f, 0.0f, 1.0f);
+    gl4duBindMatrix("viewMatrix");
+    gl4duBindMatrix("projectionMatrix");
+    gl4duSendMatrices();
+    glUniform1f(glGetUniformLocation(_riviere_pId, "time"), t*10.0f);
+    /* Configuration des lumières */
+    glUniform1f(glGetUniformLocation(_riviere_pId, "noiseScale"), 0.15f);  // Ajoutez ce paramètre
+    glUniform3f(glGetUniformLocation(_riviere_pId, "lightPosition"), 0.0f, sin(-1 + t * 2.3f) * 8.0f, -3.0f);
+    glUniform3f(glGetUniformLocation(_riviere_pId, "lightColor"), 1.0f, 1.0f, 1.0f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "shininess"), 8.0f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "waveStrength"), 0.5f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "waveSpeed"), 2.0f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "movementFactor"), 1.50f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "amplFactor"), 0.6f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    gl4dgDraw(_quadId);
+    glDisable(GL_BLEND);
 
     /* Désactiver le programme shader */
     glUseProgram(0);
+    /* Désactiver les textures de bruit */
+    unuseNoiseTextures(0);
 
     /* Mise à jour de l'angle pour animation */
     angle += 18.0f * dt;
