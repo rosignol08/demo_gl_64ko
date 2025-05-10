@@ -9,7 +9,7 @@
 #include <GL4D/gl4du.h>
 #include <GL4D/gl4dp.h>
 #include <GL4D/gl4duw_SDL2.h>
-#include <SDL_ttf.h>
+#include <SDL2/SDL_ttf.h>
 #include <GL4D/gl4dh.h>
 
 static GLuint _pId = 0;
@@ -62,6 +62,7 @@ void credits(int state) {
       glDeleteProgram(_pId);
       _pId = 0;
     }
+    
     return;
   
   case GL4DH_UPDATE_WITH_AUDIO:
@@ -77,7 +78,7 @@ void credits(int state) {
 //texture avec du texte
 static void initText(GLuint * ptId, const char * text) {
   static int firstTime = 1;
-  SDL_Color c = {229, 229, 229, 255}; // Couleur orange feu
+  SDL_Color c = {229, 229, 229, 255}; // Couleur blanc gris
   SDL_Surface * d, * s;
   TTF_Font * font = NULL;
   if(firstTime) {
@@ -146,12 +147,11 @@ void init(void){
   _pId = gl4duCreateProgram("<vs>shaders/credits.vs", "<fs>shaders/credits.fs", NULL);
   _quad = gl4dgGenQuadf();
   
-  //les texte
-  
+    //les texte
     initText(&_textTexId1,
       "Au coeur de la Chine, au sommet d’une cascade,\n"
       "se trouve une porte appelée Longmen.\n"
-      "C’est ici que des centaines de carpes,\n"
+      "C’est ici qu’à chaque floraison des cerisiers, des centaines de carpes ,\n"
       "tentent de remonter le courant pour la franchir et devenir des dragons.\n"
       );
   
@@ -166,7 +166,7 @@ void init(void){
     "Guidée par l’esprit, la carpe s’élança une dernière fois..."
   );
     initText(&_textTexId4,
-      "Elle franchit la porte, se transformant en dragon.\n"
+      " Elle franchit la porte, à la floraison des cerisiers, et se transforma en dragon.\n"
       "L’esprit du fleuve lui offrit un souffle de vie éternelle.\n"
       "La carpe, devenue dragon, s’envola dans le ciel, illuminant le monde de sa lumière dorée.");
   

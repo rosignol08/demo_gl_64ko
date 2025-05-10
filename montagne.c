@@ -159,7 +159,7 @@ static GLuint _sphereId = 0;
 static GLuint _fboId = 0;
 static GLuint _texId = 0;
 
-float test = 2.0f;
+float test = 0.0f;
 /* booléen pour bruit ou pas de bruit */
 // static int _noise = 0;
 
@@ -247,7 +247,7 @@ void init(void)
     _pId = gl4duCreateProgram("<vs>shaders/lum_montagne.vs", "<fs>shaders/lum_montagne.fs", NULL);
     _riviere_pId = gl4duCreateProgram("<vs>shaders/riviere.vs", "<fs>shaders/riviere.fs", NULL);
     /* générer le terrain */
-    GLfloat *heightmap = gl4dmTriangleEdge(33, 33, 0.6f);
+    GLfloat *heightmap = gl4dmTriangleEdge(33, 33, 0.7f);
     /* Créer une grid */
     _gridId = gl4dgGenGrid2dFromHeightMapf(33, 33, heightmap);
     free(heightmap);
@@ -266,7 +266,7 @@ void init(void)
     
     gl4duBindMatrix("projectionMatrix");
     gl4duLoadIdentityf();
-    gl4duPerspectivef(170.0f, 1.0f, 0.1f, 1000.0f);
+    gl4duPerspectivef(60.0f, 1.0f, 0.1f, 1000.0f);
 
     initNoiseTextures(128, &permTexId, &gradTexId);
     initNoiseTextures(128, &permTexId2, &gradTexId2);
@@ -296,15 +296,18 @@ void draw(void)
     gl4duBindMatrix("viewMatrix");
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
-    gl4duLookAtf(0.0f, 3.5f, test, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    //gl4duLookAtf(0.0f, 5.0f, 5.0f, 0.0f, 0.0f, -1.3f, 0.0f, 1.0f, 0.0f);
+    //gl4duLookAtf(0.0f, 2.0f, 2.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
     // eyeY += 0.0005f;
-    test += 0.005f;
+    test -= 0.1f*dt;
     /* lier la matrice modèle */
     gl4duBindMatrix("modelMatrix");
     /* Charger la matrice identité */
     gl4duLoadIdentityf();
     /* Mise à l'échelle du terrain */
-    gl4duScalef(4.0f, 1.0f, 3.0f);
+    gl4duScalef(2.50f, 1.0f, 2.50f);
+    gl4duRotatef(90.0f, 0.0f, 1.0f, 0.0f);
+    gl4duTranslatef(0.0f, -0.50f, -0.50f);
     /* Envoyer les matrices */
     gl4duSendMatrices();
 
@@ -335,12 +338,13 @@ void draw(void)
 
     glEnable(GL_DEPTH_TEST); // faut activer ça
     glEnable(GL_CULL_FACE);
-    //gl4dgDraw(_gridId);
+    gl4dgDraw(_gridId);
 
     /* Configurer la sphère pour le ciel */
     gl4duBindMatrix("modelMatrix");
     gl4duLoadIdentityf();
-    gl4duScalef(15.0f, 15.0f, 15.0f);
+    gl4duScalef(25.0f, 25.0f, 25.0f);
+    
     gl4duSendMatrices();
 
     /* Désactiver le culling pour voir l'intérieur de la sphère */
@@ -361,22 +365,23 @@ void draw(void)
     //on va dessiner le quad comme une rivière inclinée sur le terrain
     gl4duBindMatrix("modelMatrix");
     gl4duLoadIdentityf();
-    gl4duScalef(1.0f, 0.20f, 2.0f);
-    gl4duTranslatef(0.0f, 1.0f, -1.0f);
-    gl4duRotatef(180.0f, 0.0f, 0.0f, 1.0f);
+    gl4duScalef(6.0f, 0.20f, 6.0f);
+    gl4duTranslatef(0.0f, -1.80f, -1.30f);
+    //gl4duRotatef(180.0f, 0.0f, 0.0f, 1.0f);
+    gl4duRotatef(15.0f, 1.0f, 0.0f, 0.0f);
     gl4duBindMatrix("viewMatrix");
     gl4duBindMatrix("projectionMatrix");
     gl4duSendMatrices();
     glUniform1f(glGetUniformLocation(_riviere_pId, "time"), t*10.0f);
     /* Configuration des lumières */
-    glUniform1f(glGetUniformLocation(_riviere_pId, "noiseScale"), 0.15f);  // Ajoutez ce paramètre
+    glUniform1f(glGetUniformLocation(_riviere_pId, "noiseScale"), 0.8f);  // Ajoutez ce paramètre
     glUniform3f(glGetUniformLocation(_riviere_pId, "lightPosition"), 0.0f, sin(-1 + t * 2.3f) * 8.0f, -3.0f);
     glUniform3f(glGetUniformLocation(_riviere_pId, "lightColor"), 1.0f, 1.0f, 1.0f);
-    glUniform1f(glGetUniformLocation(_riviere_pId, "shininess"), 8.0f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "shininess"), 16.0f);
     glUniform1f(glGetUniformLocation(_riviere_pId, "waveStrength"), 0.5f);
-    glUniform1f(glGetUniformLocation(_riviere_pId, "waveSpeed"), 2.0f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "waveSpeed"), 6.0f);
     glUniform1f(glGetUniformLocation(_riviere_pId, "movementFactor"), 1.50f);
-    glUniform1f(glGetUniformLocation(_riviere_pId, "amplFactor"), 0.6f);
+    glUniform1f(glGetUniformLocation(_riviere_pId, "amplFactor"), 0.9f);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     gl4dgDraw(_quadId);

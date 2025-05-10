@@ -780,16 +780,16 @@ void draw(void){
         int randomStartIndex = rand() % (_nb_mobiles - 5 > 0 ? _nb_mobiles - 5 : 1);
         
         // Changer la couleur de la balle sélectionnée et des 5 suivantes
-        for (int offset = 0; offset < 6; offset++) {
+        for (int offset = 0; offset < 16; offset++) {
             int currentIndex = randomStartIndex + offset;
             
             // Vérifier que l'index ne dépasse pas le nombre de balles
             if (currentIndex < _nb_mobiles) {
-                // Changer uniquement si ce n'est pas déjà une balle rouge
+                // Changer uniquement si ce n'est pas déjà une balle dorée
                 if (_mobiles[currentIndex].color[0] < 0.1f) {
-                    _mobiles[currentIndex].color[0] = 1.0f;  // Rouge
-                    _mobiles[currentIndex].color[1] = 0.0f;  // Pas de vert
-                    _mobiles[currentIndex].color[2] = 0.0f;  // Pas de bleu
+                    _mobiles[currentIndex].color[0] = 1.0f;
+                    _mobiles[currentIndex].color[1] = 0.843f;
+                    _mobiles[currentIndex].color[2] = 0.0f;
                 }
             }
         }
@@ -863,12 +863,13 @@ void mobile_simu(void) {
     // Précalculer les valeurs constantes
     float dt_time_scale = dt * TIME_SCALE;
     float dt_vitesse = dt * vitesse;
-    float max_speed_squared = 0.0f;
+    float max_speed_squared = 2.0f;
     if (t0 < 83.0f){
-        max_speed_squared = 2.0f;
+        TIME_SCALE -= 1.0f*dt;
+        printf("t = %f\n", t0);
     }
     else {
-        max_speed_squared = 0.50f;
+        TIME_SCALE = 10.10f;
     }
     float min_distance_squared = MIN_DISTANCE * MIN_DISTANCE;
 
