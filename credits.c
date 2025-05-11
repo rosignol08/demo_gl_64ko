@@ -67,20 +67,16 @@ static void init(void)
 
   // les texte
   initText(&_textTexId1,
-           "EMBER\n\n\n"
-           "Une démo 64ko qui explore le thème du feu à travers diverses animations\n"
-           "et effets visuels.\n\n\n"
-           "MUSIQUE:\n"
-           "\"Embers\"\n"
-           "\"Musique originale créée par Dounia HULLOT avec GarageBand.\"\n"
-           "\"Conversion/édition audio réalisée avec Audacity.\"\n"
-           "Licence : Musique originale - libre de droits.\n\n\n"
-           "DÉVELOPPÉ PAR:\n"
-           "Dounia HULLOT\n\n\n"
-           "REMERCIEMENTS:\n"
-           "API8 - Université Paris 8\n"
-           "Farès BELHADJ\n\n\n"
-           "Avril 2025");
+           "Longmen\n\n\n"
+           "Musique:\n"
+           "Musique provenant de bitmidi.com.\n"
+           "Licence : libre de droits.\n\n\n"
+           "Fait avec amour par:\n"
+           "Romaric CHAFFRAY\n\n\n"
+           "Remerciment:\n"
+           "Dounia HULLOT, Aleksandar ILIC\n"
+           "Julien BOUTICOURT, Mistral"
+           "Farès BELHADJ\n\n\n");
   /*
     initText(&_textTexId2,
       "Une carpe, se lança dans l’ascension du fleuve.\n"
@@ -141,7 +137,7 @@ static void draw(void)
   gl4duLoadIdentityf();
 
   // Position les crédits au centre avec une légère animation
-  gl4duScalef(0.90, 0.90, 1.0);
+  gl4duScalef(0.90, 01.20, 1.0);
   gl4duTranslatef(0.0, 0.10, -2.30);
 
   gl4duSendMatrices();

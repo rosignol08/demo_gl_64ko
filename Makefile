@@ -22,7 +22,7 @@ PROGNAME = rgb
 VERSION = 1.2
 distdir = $(PACKNAME)_$(PROGNAME)-$(VERSION)
 HEADERS = animations.h audioHelper.h tiny4D.h
-SOURCES = animations.c audioHelper.c window.c basic_audio.c arbre.c montagne.c balle_song.c eau_phy.c intro.c credits.c text1.c text2.c text3.c text4.c porte.c#test_mont.c# test_lumi.c #ocean.c #wf_cube.c vhs.c 
+SOURCES = animations.c audioHelper.c window.c arbre.c montagne.c balle_song.c eau_phy.c intro.c credits.c text1.c text2.c text3.c text4.c porte.c
 # compile arbre.c avec -Os aulieu de -O3
 arbre.o: CFLAGS = -Os
 MSVCSRC = $(patsubst %,<ClCompile Include=\"%\\\" \\/>,$(SOURCES))

@@ -124,7 +124,7 @@ static void draw(void) {
     gl4duLoadIdentityf();
     
     // Position les crédits au centre avec une légère animation 
-    gl4duScalef(0.90, 0.90, 1.0);
+    gl4duScalef(0.90, 0.70, 1.0);
     gl4duTranslatef(0.0, 0.10, -2.30);
     
     gl4duSendMatrices();

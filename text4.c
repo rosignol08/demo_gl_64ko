@@ -61,9 +61,9 @@ static void init(void){
   
     //les texte
     initText(&_textTexId1,
-      " Elle franchit la porte, à la floraison des cerisiers, et se transforma en dragon.\n"
-      "L’esprit du fleuve lui offrit un souffle de vie éternelle.\n"
-      "La carpe, devenue dragon, s’envola dans le ciel, illuminant le monde de sa lumière dorée.");
+      "Elle franchit la porte, à la floraison des cerisiers.\n"
+      "La carpe s’éleva dans le ciel.\n"
+      "Elle était devenue dragon.\n");
   /*
     initText(&_textTexId2,
       "Une carpe, se lança dans l’ascension du fleuve.\n"
@@ -123,7 +123,7 @@ static void draw(void) {
     gl4duLoadIdentityf();
     
     // Position les crédits au centre avec une légère animation 
-    gl4duScalef(0.90, 0.90, 1.0);
+    gl4duScalef(0.90, 0.60, 1.0);
     gl4duTranslatef(0.0, 0.10, -2.30);
     
     gl4duSendMatrices();
