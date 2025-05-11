@@ -56,7 +56,7 @@ static void draw(void)
 
     glUseProgram(_pid);
     glUniform1f(glGetUniformLocation(_pid, "time"), (float)t);
-    glUniform2f(glGetUniformLocation(_pid, "resolution"), (float)1920, (float)1080);
+    glUniform2f(glGetUniformLocation(_pid, "resolution"), (float)1280, (float)720);
 
     gl4duBindMatrix("modelViewMatrix");
     gl4duLoadIdentityf();
@@ -67,3 +67,5 @@ static void draw(void)
 
     glBindTexture(GL_TEXTURE_2D, 0);
 }
+/*
+triangle de https://github.com/marklundin/glsl-sdf-primitives/blob/master/udTriangle.glsl*/
