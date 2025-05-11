@@ -45,6 +45,11 @@ extern "C" {
   //extern void test_lumi(int state);
   extern void intro_arabesque(int state);
   extern void montagne_arbre(int state);
+  extern void texte1(int state);
+  extern void texte2(int state);
+  extern void texte3(int state);
+  extern void texte4(int state);
+  extern void shader_test(int state);
 
 #ifdef __cplusplus
 }

@@ -863,13 +863,15 @@ void mobile_simu(void) {
     // Précalculer les valeurs constantes
     float dt_time_scale = dt * TIME_SCALE;
     float dt_vitesse = dt * vitesse;
-    float max_speed_squared = 2.0f;
-    if (t0 < 83.0f){
-        TIME_SCALE -= 1.0f*dt;
-        printf("t = %f\n", t0);
+    float max_speed_squared = 0.0f;
+    if ((t0 < 83.0f)){
+        //TIME_SCALE = 1.0f*dt;
+        max_speed_squared = 0.0f;
+        //printf("t = %f\n", t0);
     }
     else {
         TIME_SCALE = 10.10f;
+        max_speed_squared = 2.0f;
     }
     float min_distance_squared = MIN_DISTANCE * MIN_DISTANCE;
 

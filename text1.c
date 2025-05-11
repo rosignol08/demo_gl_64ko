@@ -19,7 +19,7 @@ static void initText(GLuint * ptId, const char * text);
 static void init(void);
 static void draw(void);
 /* Animation de crédits */
-void credits(int state) {
+void texte1(int state) {
   
   switch(state) {
   case GL4DH_INIT:
@@ -61,20 +61,11 @@ static void init(void){
   
     //les texte
     initText(&_textTexId1,
-      "EMBER\n\n\n"
-         "Une démo 64ko qui explore le thème du feu à travers diverses animations\n"
-         "et effets visuels.\n\n\n"
-         "MUSIQUE:\n"
-         "\"Embers\"\n"
-         "\"Musique originale créée par Dounia HULLOT avec GarageBand.\"\n"
-         "\"Conversion/édition audio réalisée avec Audacity.\"\n"
-         "Licence : Musique originale - libre de droits.\n\n\n"
-         "DÉVELOPPÉ PAR:\n"
-         "Dounia HULLOT\n\n\n"
-         "REMERCIEMENTS:\n"
-         "API8 - Université Paris 8\n"
-         "Farès BELHADJ\n\n\n"
-         "Avril 2025");
+      "Au coeur de la Chine, au sommet d’une cascade,\n"
+      "se trouve une porte appelée Longmen.\n"
+      "C’est ici qu’à chaque floraison des cerisiers, des centaines de carpes ,\n"
+      "tentent de remonter le courant pour la franchir et devenir des dragons.\n"
+      );
   /*
     initText(&_textTexId2,
       "Une carpe, se lança dans l’ascension du fleuve.\n"

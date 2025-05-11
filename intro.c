@@ -87,12 +87,9 @@ void init(void) {
 }
 
 void draw(void) {
-    static float t = 0;
-    static double t0 = 0;
-    double t1 = gl4dhGetTicks() / 1000.0;
-    float dt = (float)(t1 - t0);
-    t0 = t1;
-
+    static double t0 = 0.0;
+    double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
+    t0 = t;
     //noir
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
