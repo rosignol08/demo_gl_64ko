@@ -18,7 +18,7 @@ const float PI = 3.14159;
 const float INF = 1e+10;
 
 const vec3 lightDir = vec3(-0.48666426339228763, 0.8111071056538127, -0.3244428422615251);
-const vec3 backgroundColor = vec3(0.388, 0.686, 0.91);
+const vec3 backgroundColor = vec3(1, 0.808, 0.0);//0.388, 0.686, 0.91);
 const vec3 gateColor = vec3(0.255, 0.835, 0.58);
 
 const float totalTime = 75.0;
@@ -40,6 +40,7 @@ const int BASIC_MATERIAL = 0;
 const int MIRROR_MATERIAL = 1;
 const int EMISSIVE_MATERIAL = 2; // pour la perle
 const int ROOF_MATERIAL = 3; // nouveau matériau noir
+const int ROOF_MATERIAL2 = 4; // pour la sphere de soleil
 
 // Distance functions
 vec3 opRep(vec3 p, float interval) {
@@ -98,47 +99,31 @@ float udTriangle(vec3 p, vec3 a, vec3 b, vec3 c)
      :
      dot(nor,pa)*dot(nor,pa)/dot2(nor) );
 }
+float sdPyramidRoof(vec3 p, vec3 c, float width, float height) {
+    // Position relative to center
+    p = p - c;
+    
+    // Elongate the roof along the Z axis
+    float lengthZ = width * 2.0;  // Make it longer in Z direction
+    float lengthX = width;        // Keep original width in X direction
+    
+    // Top ridge line instead of a point
+    float halfRidgeLength = lengthZ * 0.5;
+    vec3 ridgeStart = vec3(0.0, height, -halfRidgeLength);
+    vec3 ridgeEnd = vec3(0.0, height, halfRidgeLength);
+    
+    // Create elongated roof with triangular sides
+    float t1 = udTriangle(p, vec3(-lengthX, 0.0, -halfRidgeLength), vec3(-lengthX, 0.0, halfRidgeLength), ridgeStart);
+    float t2 = udTriangle(p, vec3(-lengthX, 0.0, halfRidgeLength), ridgeEnd, ridgeStart);
+    float t3 = udTriangle(p, vec3(lengthX, 0.0, -halfRidgeLength), vec3(lengthX, 0.0, halfRidgeLength), ridgeEnd);
+    float t4 = udTriangle(p, vec3(lengthX, 0.0, -halfRidgeLength), ridgeStart, ridgeEnd);
+    float t5 = udTriangle(p, vec3(-lengthX, 0.0, -halfRidgeLength), vec3(lengthX, 0.0, -halfRidgeLength), ridgeStart);
+    float t6 = udTriangle(p, vec3(-lengthX, 0.0, halfRidgeLength), vec3(lengthX, 0.0, halfRidgeLength), ridgeEnd);
+    
+    // Combine all triangular sides (removed the base plane max operation)
+    return min(min(min(t1, t2), min(t3, t4)), min(t5, t6));
+}
 
-//float dGate(vec3 p) {
-//    p.y -= 1.3 * 0.5;
-//    
-//    float r = 0.05;
-//    float left = sdCappedCylinder(p - vec3(-1.0, 0.0, 0.0), vec2(r, 1.3));
-//    float right = sdCappedCylinder(p - vec3(1.0, 0.0, 0.0), vec2(r, 1.3));
-//
-//    float ty = 0.02 * p.x * p.x;
-//    float tx = 0.5 * (p.y - 1.3);
-//    float katsura = udBox(p - vec3(0.0, 1.3 + ty, 0.0), vec3(1.7 + tx, r * 2.0 + ty, r));
-//
-//    float kan = udBox(p - vec3(0.0, 0.7, 0.0), vec3(1.3, r, r));
-//    float gakuduka = udBox(p - vec3(0.0, 1.0, 0.0), vec3(r, 0.3, r));
-//
-//    return min(min(left, right), min(gakuduka, min(katsura, kan)));
-//}
-
-//pour la perle en haut de la porte
-//float pearl = sphereDist(p, vec3(0.0, 2., 0.0), 0.1);
-//float dGate(vec3 p) {
-//    p.y -= 1.3 * 0.5;
-//    
-//    float r = 0.05;
-//
-//    // Colonnes latérales
-//    float left = sdCappedCylinder(p - vec3(-1.0, 0.0, 0.0), vec2(r, 1.3));
-//    float right = sdCappedCylinder(p - vec3(1.0, 0.0, 0.0), vec2(r, 1.3));
-//
-//    // Nouveau toit style chinois (courbé)
-//    float roofCurve = 0.3 * sin(p.x * 3.0); // vague douce
-//    vec3 roofCenter = vec3(0.0, 1.5 + roofCurve, 0.0);
-//    float roof = udBox(p - roofCenter, vec3(1.7, 0.1, r));
-//
-//    // Traverse centrale décorative
-//    float mid = udBox(p - vec3(0.0, 1.0, 0.0), vec3(1.2, 0.1, r));
-//    
-//
-//    return min(min(min(left, right), min(roof, mid)), pearl);
-//
-//}
 
 float sdBentRod(vec3 p, vec3 center, float radius, float angleStart, float angleEnd, float thickness) {
     // Projette le point dans le plan XY relatif au centre
@@ -164,70 +149,63 @@ float dGate(vec3 p) {
     p.y -= 1.3 * 0.5;
     
     float r = 0.05;
-
+    float backOffset = 0.2;
     // Colonnes latérales (piliers verts)
     float left = sdCappedCylinder(p - vec3(-1.0, 0.0, 0.0), vec2(r, 1.3));
     float right = sdCappedCylinder(p - vec3(1.0, 0.0, 0.0), vec2(r, 1.3));
 
     // Traverse centrale décorative (verte aussi)
     float mid = udBox(p - vec3(0.0, 1.0, 0.0), vec3(1.2, 0.1, r));
-/*
     // Toit triangulaire noir
-    // Calcul de la pente triangulaire
+    float roofHeight = 2;
+    float roofWidth = 1.8;
     float roofY = roofHeight - abs(p.x) * 0.5;
-    vec3 roofPos = p - vec3(0.0, roofY, 0.0);
-    float roof = udTriangle(roofPos, vec3(roofWidth, 0.08, r));
-    // Base du toit, une bande horizontale noire
-    float roofBaseY = roofHeight - 0.8; // Ajuste la hauteur pour bien remplir le vide
-    vec3 basePos = p - vec3(0.0, roofBaseY, 0.0);
-    float roofBase = udBox(basePos, vec3(roofWidth * 0.95, 0.3, r));
-*/
-
-// Toit triangulaire noir
-float roofHeight = 2.1;
-float roofWidth = 1.8;
-float roofY = roofHeight - abs(p.x) * 0.5;
-// Définition des 3 sommets du triangle (vu de face)
-vec3 a = vec3(-roofWidth, roofHeight - 0.8, 0.0); // coin gauche
-vec3 b = vec3( roofWidth, roofHeight - 0.8, 0.0); // coin droit
-vec3 c = vec3(0.0, roofHeight, 0.0);              // sommet
-
-float roof = udTriangle(p, a, b, c);
-
-// Courbes sinusoïdales sur le toit
-float roofBaseHeight = roofHeight - 0.6;
-float r_curve = 0.05; // épaisseur des tiges
-
-// Tige courbée principale
-float waveMagnitude = 0.3;
-float waveFrequency = 4.0;
-float roofCurve = waveMagnitude * sin(p.x * waveFrequency);
-vec3 roofTopCenter = vec3(0.0, roofBaseHeight + roofCurve, 0.0);
-float mainCurve = udBox(p - roofTopCenter, vec3(1.7, 0.04, r_curve));
-
-// Tige courbée secondaire meme taille mais dans l'autre sens
-float secondCurve = -waveMagnitude * 0.6 * sin(p.x * waveFrequency * 1.2);
-vec3 secondCurvePos = vec3(0.0, roofBaseHeight + 0.15 + secondCurve, 0.0);
-float secondRod = udBox(p - secondCurvePos, vec3(1.7, 0.03, r_curve));
-
-float arcs = min(mainCurve, secondRod);
-
+    // Définition des 3 sommets du triangle (vu de face)
+//    vec3 a = vec3(-roofWidth, roofHeight - 0.8, backOffset); // coin gauche
+//    vec3 b = vec3( roofWidth, roofHeight - 0.8, backOffset); // coin droit
+//    vec3 c = vec3(0.0, roofHeight, 0.0);              // sommet
+//    // Pyramid roof parameters
+//    vec3 roofCenter = vec3(0.0, 1.7, backOffset * 0.5); // Center point of the pyramid
+//    float pyramidWidth = 1.2;  // Width of pyramid base
+//    float pyramidHeight = 0.8; // Height of pyramid
+//    //float roof = sdPyramidRoof(p, roofCenter, pyramidWidth, pyramidHeight);
+//    //float roof = udTriangle(p, a, b, c);
+    // Courbes sinusoïdales sur le toit
+    float roofBaseHeight = roofHeight - 0.6;
+    float r_curve = 0.05; // épaisseur des tiges
+    
+    // Tige courbée principale
+    float waveMagnitude = 0.2;
+    float curveFade = pow(clamp(abs(p.x / roofWidth), 0.0, 1.0), 6.50); // 0 au centre, 1 aux bords
+    float roofCurve = waveMagnitude * curveFade;
+    
+    
+    vec3 roofTopCenter = vec3(0.0, roofBaseHeight + roofCurve -0.1, 0.0);
+    float mainCurve = udBox(p - roofTopCenter, vec3(1.9, 0.04, r_curve));
+    
+    float arcs = mainCurve;
+    
+    // Décalage vers l'arrière pour les tiges et ornements (z positif = arrière)
+    //float backOffset = 0.5;
+    
     // Tiges décoratives aux coins (vertes)
     float tipHeight = 0.1;
-    float leftTip = sdCappedCylinder(p - vec3(-roofWidth, (roofY + 0.3) + tipHeight * 0.4, 0.0), vec2(r*0.4, tipHeight));
-    float rightTip = sdCappedCylinder(p - vec3(roofWidth, (roofY + 0.3) + tipHeight * 0.4, 0.0), vec2(r*0.4, tipHeight));
+    float leftTip = sdCappedCylinder(p - vec3(-roofWidth-0.05, (roofY + 0.3) + tipHeight * 0.4, 0.0), vec2(r*0.4, tipHeight));
+    float rightTip = sdCappedCylinder(p - vec3(roofWidth+0.05, (roofY + 0.3) + tipHeight * 0.4, 0.0), vec2(r*0.4, tipHeight));
     
     // Ornements aux extrémités des tiges
-    float leftOrn = sphereDist(p, vec3(-roofWidth, roofY + tipHeight * 4.5, 0.0), r * 1.2);
-    float rightOrn = sphereDist(p, vec3(roofWidth, roofY + tipHeight * 4.5, 0.0), r * 1.2);
+    float leftOrn = sphereDist(p, vec3(-roofWidth-0.05, roofY + tipHeight * 2.0, 0.0), r * 1.2);
+    float rightOrn = sphereDist(p, vec3(roofWidth+0.05, roofY + tipHeight * 2.0, 0.0), r * 1.2);
     
     // Fusion des tiges et ornements
     float tips = min(min(leftTip, rightTip), min(leftOrn, rightOrn));
     
-    // Fusion de tous les éléments
-    //return min(min(min(left, right), mid), min(roof, tips));
-    return min(min(min(left, right), mid), min(min(roof, tips), arcs));
+    //pour la perle en haut de la porte
+    float pearl = sphereDist(p, vec3(0.0, 0-1.0, 10.0), 3);
 
+    // Fusion de tous les éléments
+    return min(min(min(min(left, right), mid), min( tips, arcs)),pearl);
+    //return min(min(min(min(left, right), mid), min(tips, arcs)),pearl);
 }
 
 
@@ -252,81 +230,83 @@ Intersect minIntersect(Intersect a, Intersect b) {
     }
 }
 
-Intersect sceneIntersect(vec3 p) {
-//    Intersect a;
-//    float floorDist = udFloor(p);
-//    float gateDist = dGate(p);
-//    
-//    // On isole la perle pour savoir si c'est elle
-//    float pearlDist = sphereDist(p, vec3(0.0, 1.8, 0.0), 0.1);
-//
-//    // Si la perle est la plus proche
-//    if (pearlDist < gateDist && pearlDist < floorDist) {
-//        a.distance = pearlDist;
-//        a.material = EMISSIVE_MATERIAL;
-//    } else if (floorDist < gateDist) {
-//        // C'est le sol
-//        a.distance = floorDist;
-//        a.material = MIRROR_MATERIAL; // Le sol continue à refléter
-//    } else {
-//        // C'est la porte
-//        a.distance = gateDist;
-//        a.material = BASIC_MATERIAL; // La porte ne reflète plus
-//    }
-//    return a;
-    Intersect a;
-    float floorDist = udFloor(p);
-    
-    // Porte et ses composants
-    float pillarL = sdCappedCylinder(p - vec3(-1.0, 0.65, 0.0), vec2(0.05, 1.3));
-    float pillarR = sdCappedCylinder(p - vec3(1.0, 0.65, 0.0), vec2(0.05, 1.3));
-    float traverse = udBox(p - vec3(0.0, 1.0, 0.0), vec3(1.2, 0.1, 0.05));
-    
-    // Toit triangulaire
-    float roofHeight = 2.1;
+Intersect gateIntersect(vec3 p) {
+    Intersect g;
+    g.distance = 1e5;
+    g.material = BASIC_MATERIAL;
+
+    p.y -= 1.3 * 0.5;
+
+    float r = 0.05;
+    float backOffset = 0.2;
+
+    float d;
+
+    // Piliers verts
+    d = sdCappedCylinder(p - vec3(-1.0, 0.0, 0.0), vec2(r, 1.3));
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
+    d = sdCappedCylinder(p - vec3(1.0, 0.0, 0.0), vec2(r, 1.3));
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
+    // Traverse verte
+    d = udBox(p - vec3(0.0, 1.0, 0.0), vec3(1.2, 0.1, r));
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
+    // Toit triangulaire noir
+    float roofHeight = 2.0;
     float roofWidth = 1.8;
     float roofY = roofHeight - abs(p.x) * 0.5;
-    vec3 roofPos = p - vec3(0.0, roofY, 0.0);
-    float roof = udBox(roofPos, vec3(roofWidth, 0.08, 0.05));
-    
-    // Tiges décoratives
-    float tipHeight = 0.3;
-    float tipL = sdCappedCylinder(p - vec3(-roofWidth, roofY + tipHeight * 0.5, 0.0), vec2(0.03, tipHeight));
-    float tipR = sdCappedCylinder(p - vec3(roofWidth, roofY + tipHeight * 0.5, 0.0), vec2(0.03, tipHeight));
-    
-    // Ornements aux extrémités
-    float ornL = sphereDist(p, vec3(-roofWidth, roofY + tipHeight, 0.0), 0.06);
-    float ornR = sphereDist(p, vec3(roofWidth, roofY + tipHeight, 0.0), 0.06);
-    
-    // Perle décorative au centre du toit (optionnelle)
-    float pearl = sphereDist(p, vec3(0.0, roofHeight + 0.1, 0.0), 0.1);
+    //vec3 a = vec3(-roofWidth, roofHeight - 0.8, backOffset);
+    //vec3 b = vec3( roofWidth, roofHeight - 0.8, backOffset);
+    //vec3 c = vec3(0.0, roofHeight, 0.0);
+    //d = udTriangle(p, a, b, c);
+    //if (d < g.distance) { g.distance = d; g.material = ROOF_MATERIAL; }
 
-    // Recherche de l'élément le plus proche
-    float d = floorDist;
-    int mat = MIRROR_MATERIAL;
-    
-    // Pour chaque élément, vérifie s'il est plus proche que ce qu'on a déjà trouvé
-    // et assigne le matériau approprié
-    
-    // Piliers verts
-    if (pillarL < d) { d = pillarL; mat = BASIC_MATERIAL; }  // Matériau vert pour piliers
-    if (pillarR < d) { d = pillarR; mat = BASIC_MATERIAL; }
-    if (traverse < d) { d = traverse; mat = BASIC_MATERIAL; } // Traverse verte aussi
-    
-    // Toit noir
-    if (roof < d) { d = roof; mat = ROOF_MATERIAL; }         // Matériau noir pour toit
-    
+    // Tige courbe centrale (verte)
+    float roofBaseHeight = roofHeight - 0.6;
+    float r_curve = 0.05;
+    float waveMagnitude = 0.2;
+    float curveFade = pow(clamp(abs(p.x / roofWidth), 0.0, 1.0), 6.5);
+    float roofCurve = waveMagnitude * curveFade;
+    vec3 roofTopCenter = vec3(0.0, roofBaseHeight + roofCurve-0.1, 0.0);
+    d = udBox(p - roofTopCenter, vec3(1.9, 0.04, r_curve));
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
     // Tiges et ornements verts
-    if (tipL < d) { d = tipL; mat = BASIC_MATERIAL; }        // Tiges vertes
-    if (tipR < d) { d = tipR; mat = BASIC_MATERIAL; }
-    if (ornL < d) { d = ornL; mat = BASIC_MATERIAL; }        // Ornements verts
-    if (ornR < d) { d = ornR; mat = BASIC_MATERIAL; }
-    
+    float tipHeight = 0.1;
+    d = sdCappedCylinder(p - vec3(-roofWidth, (roofY + 0.3) + tipHeight * 0.4, 0.0), vec2(r * 0.4, tipHeight));
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
+    d = sdCappedCylinder(p - vec3(roofWidth, (roofY + 0.3) + tipHeight * 0.4, 0.0), vec2(r * 0.4, tipHeight));
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
+    d = sphereDist(p, vec3(-roofWidth, roofY + tipHeight * 4.5, 0.0), r * 1.2);
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
+    d = sphereDist(p, vec3(roofWidth, roofY + tipHeight * 4.5, 0.0), r * 1.2);
+    if (d < g.distance) { g.distance = d; g.material = BASIC_MATERIAL; }
+
     // Perle lumineuse
-    if (pearl < d) { d = pearl; mat = EMISSIVE_MATERIAL; }   // Matériau lumineux pour perle
+    d = sphereDist(p, vec3(0.0, -1.0, 10.0), 3);
     
-    a.distance = d;
-    a.material = mat;
+    if (d < g.distance) { g.distance = d; g.material = ROOF_MATERIAL; }
+
+    return g;
+}
+
+
+Intersect sceneIntersect(vec3 p) {
+    Intersect a;
+    float floorDist = udFloor(p);
+    a.distance = floorDist;
+    a.material = MIRROR_MATERIAL;
+
+    Intersect g = gateIntersect(p);
+    if (g.distance < a.distance) {
+        a = g;
+    }
+
     return a;
 }
 
@@ -385,13 +365,13 @@ Intersect getRayColor(vec3 origin, vec3 ray) {
             // Couleur rouge pour la porte Torii
             nearest.color = gateColor * diffuse * 1.2;
         }else if(nearest.material == MIRROR_MATERIAL){
-            nearest.color = vec3(0.5, 0.7, 0.8) * diffuse + vec3(0.0) * specular;
+            //nearest.color = vec3(0.2, 0.51, 0.376) * diffuse + vec3(0.0) * specular;
+            nearest.color = vec3(0.2, 0.2, 0.2);
         }else if(nearest.material == EMISSIVE_MATERIAL){
             // Couleur verte brillante pour la perle
-            nearest.color = vec3(0.2, 1.0, 0.3) * 2.5; // très lumineux
+            nearest.color = vec3(1, 0.282, 0.204) * 1.0; // très lumineux
         } else if(nearest.material == ROOF_MATERIAL) {
-            // Toit noir mat
-            nearest.color = vec3(0.05, 0.05, 0.05) * diffuse;
+            nearest.color = vec3(1, 0.11, 0.11) * 4.0; // très lumineux
         }
         nearest.color += vec3(0.1, 0.15, 0.15);
         nearest.isHit = true;
@@ -432,7 +412,7 @@ void main() {
         nearest = getRayColor(cPos, ray);
         
         color += alpha * nearest.color;
-        alpha *= 0.3; // Réduire encore plus l'opacité du reflet
+        alpha *= 0.9; // Réduire encore plus l'opacité du reflet
         
         if(!nearest.isHit || nearest.material != MIRROR_MATERIAL) break;
         
@@ -443,19 +423,44 @@ void main() {
     // Ajouter un dégradé de ciel si aucun objet n'est touché
     if (!nearest.isHit) {
         // Créer un dégradé basé sur la direction du rayon (y)
-        float skyGradient = 0.5 * (ray.y + 1.0); // Transforme [-1,1] en [0,1]
-        vec3 skyColor = mix(
-            vec3(1.0, 1.0, 1.0),              // Blanc en bas
-            vec3(0.5, 0.7, 1.0),              // Bleu ciel en haut
-            skyGradient
-        );
+        float skyGradient = pow(0.5 * (ray.y + 1.0), 0.8); // Transforme [-1,1] en [0,1] avec une courbe plus prononcée
+        
+        // Couleurs plus contrastées pour le dégradé
+        vec3 skyColorBottom = vec3(0.92, 0.53, 0.32);    // Jaune/orange plus vif en bas
+        vec3 skyColorTop = vec3(0.98, 0.82, 0.14);        // Orange/rouge plus intense en haut
         
         // Remplacer la couleur de fond par le dégradé du ciel
-        color = skyColor;
+        color = mix(skyColorBottom, skyColorTop, skyGradient);
     }
-    
-    // Ajouter une touche finale de luminosité à toute la scène
-    color *= 1.1; // Augmenter globalement la luminosité de 10%
-    
+    // Add clouds when looking at sky
+    if (!nearest.isHit) {
+        // Cloud noise function
+        vec3 cloudPos = ray * 30.0; // Scale increased to shrink clouds
+        // Stretch clouds on X axis
+        cloudPos.x *= 0.7; // Reduce X frequency to stretch clouds horizontally
+        float noise = 0.0;
+        
+        // More iterations for finer detail
+        for (int i = 0; i < 6; i++) {
+            float scale = pow(2.0, float(i));
+            // Higher frequency values and faster time factor for quicker variation
+            noise += (sin(cloudPos.x * 0.3 * scale + time * 0.2) * 
+                     sin(cloudPos.z * 0.3 * scale + time * 0.15)) * (0.35 / scale);
+        }
+        
+        // Only show clouds in the upper hemisphere
+        float cloudMask = smoothstep(0.0, 0.3, ray.y);
+        
+        // Sharper thresholds for more defined small clouds
+        float cloudDensity = smoothstep(0.15, 0.25, noise) * 0.6 * cloudMask;
+        
+        // Add cloud distribution pattern for scattered appearance
+        float distribution = sin(cloudPos.x * 0.5) * sin(cloudPos.z * 0.2) * sin(cloudPos.x * 0.08 + cloudPos.z * 0.15);
+        cloudDensity *= smoothstep(0.0, 0.2, distribution + 0.3);
+        
+        vec3 cloudColor = vec3(1.0, 0.98, 0.9);
+        
+        color = mix(color, cloudColor, cloudDensity);
+    }
     FragColor = vec4(color, 1.0);
 }
