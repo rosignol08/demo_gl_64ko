@@ -27,8 +27,7 @@ static void keydown(int keycode);
  * ce tableau se termine toujours par l'élémént {0, NULL, NULL,
  * NULL} */
 static GL4DHanime _animations[] = {
-  { 2000, noir, NULL, NULL },
-  { 130000, shader_test, NULL, NULL},//intro texte
+  { 13000, texte1, NULL, NULL},//intro texte
   { 4000, intro_arabesque, NULL, NULL },//dessin fin : 17s
   { 2000, intro_arabesque, eau_scene, fondu },
   { 9000, eau_scene, NULL, NULL },//28 sec
@@ -41,7 +40,7 @@ static GL4DHanime _animations[] = {
   { 10000, arbre, NULL, NULL },//1:23 arbre fleuri
   { 19000, eau_scene, NULL, NULL },//eau reussi 1:43
   { 1000, eau_scene, blanc, NULL },//transition flash jsp
-  { 10000, vert, NULL, NULL },//1:53 TODO: faire la scene porte_sacree
+  { 10000, shader_test, NULL, NULL },//1:53 TODO: faire la scene porte_sacree
   { 10000, texte4, NULL, NULL}, //txt4
   { 10000, credits, NULL, NULL}, //credits de fin
   { 0, NULL, NULL, NULL } /* Toujours laisser à la fin */

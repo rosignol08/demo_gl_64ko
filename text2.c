@@ -11,8 +11,8 @@
 #include <SDL2/SDL_ttf.h>
 #include <GL4D/gl4dh.h>
 
-static GLuint _pId = 0;
-static GLuint _quad = 0;
+static GLuint _pId_text2 = 0;
+static GLuint _quad_text2 = 0;
 static GLuint _textTexId1 = 0;
 
 static void initText(GLuint * ptId, const char * text);
@@ -31,13 +31,13 @@ void texte2(int state) {
       glDeleteTextures(1, &_textTexId1);
       _textTexId1 = 0;
     }
-    if(_quad) {
-      glDeleteVertexArrays(1, &_quad);
-      _quad = 0;
+    if(_quad_text2) {
+      glDeleteVertexArrays(1, &_quad_text2);
+      _quad_text2 = 0;
     }
-    if(_pId) {
-      glDeleteProgram(_pId);
-      _pId = 0;
+    if(_pId_text2) {
+      glDeleteProgram(_pId_text2);
+      _pId_text2 = 0;
     }
     //glBindTexture(GL_TEXTURE_2D, 0);
     return;
@@ -54,10 +54,10 @@ void texte2(int state) {
 
 static void init(void){
   glEnable(GL_DEPTH_TEST);
-  _pId = gl4duCreateProgram("<vs>shaders/credits.vs", "<fs>shaders/credits.fs", NULL);
+  _pId_text2 = gl4duCreateProgram("<vs>shaders/credits.vs", "<fs>shaders/credits.fs", NULL);
   gl4duGenMatrix(GL_FLOAT, "modelViewMatrix");
   gl4duGenMatrix(GL_FLOAT, "projectionMatrix");
-  _quad = gl4dgGenQuadf();
+  _quad_text2 = gl4dgGenQuadf();
   
     //les texte
     initText(&_textTexId1,
@@ -112,13 +112,13 @@ static void draw(void) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    glUseProgram(_pId);
+    glUseProgram(_pId_text2);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _textTexId1);  
     
-    glUniform1i(glGetUniformLocation(_pId, "inv"), 1);
-    glUniform1i(glGetUniformLocation(_pId, "tex"), 0);
-    glUniform1f(glGetUniformLocation(_pId, "time"), t);
+    glUniform1i(glGetUniformLocation(_pId_text2, "inv"), 1);
+    glUniform1i(glGetUniformLocation(_pId_text2, "tex"), 0);
+    glUniform1f(glGetUniformLocation(_pId_text2, "time"), t);
     
     gl4duBindMatrix("modelViewMatrix");
     gl4duLoadIdentityf();
@@ -128,8 +128,8 @@ static void draw(void) {
     gl4duTranslatef(0.0, 0.10, -2.30);
     
     gl4duSendMatrices();
-    gl4dgDraw(_quad);
-    printf("t = %f\n", t);
+    gl4dgDraw(_quad_text2);
+    //printf("t = %f\n", t);
     glUseProgram(0);
 }
 

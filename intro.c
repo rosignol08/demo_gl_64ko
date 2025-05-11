@@ -16,11 +16,11 @@ static void draw(void);
 static void drawLotus(float x, float y, float t);
 static void drawKoiFish(float centerX, float centerY, float t);
 /* Programme shader pour les lignes */
-GLuint _pId_intro= 0;
+GLuint _pId_intro = 0;
 /* Vertex Array Object pour stocker la géométrie */
-GLuint _vao = 0;
+GLuint _vao_intro = 0;
 /* Buffer pour les sommets */
-GLuint _vbo = 0;
+GLuint _vbo_intro = 0;
 
 void intro_arabesque(int state) {
     switch(state) {
@@ -28,13 +28,13 @@ void intro_arabesque(int state) {
         init();
         return;
     case GL4DH_FREE:
-        if(_vao) {
-            glDeleteVertexArrays(1, &_vao);
-            _vao = 0;
+        if(_vao_intro) {
+            glDeleteVertexArrays(1, &_vao_intro);
+            _vao_intro = 0;
         }
-        if(_vbo) {
-            glDeleteBuffers(1, &_vbo);
-            _vbo = 0;
+        if(_vbo_intro) {
+            glDeleteBuffers(1, &_vbo_intro);
+            _vbo_intro = 0;
         }
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
@@ -75,8 +75,8 @@ void init(void) {
     _pId_intro = gl4duCreateProgram(imvs, imfs, NULL);
 
     /* Création du VAO et VBO pour dessiner des lignes */
-    glGenVertexArrays(1, &_vao);
-    glGenBuffers(1, &_vbo);
+    glGenVertexArrays(1, &_vao_intro);
+    glGenBuffers(1, &_vbo_intro);
 
     //le viewport et les matrices de projection
     gl4duGenMatrix(GL_FLOAT, "proj");
@@ -91,6 +91,7 @@ void draw(void) {
     double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
     t0 = t;
     //noir
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -117,7 +118,7 @@ void draw(void) {
     for (int i = 0; i < 5; i++) {
         float angle = 2.0f * M_PI * i / 5;
         
-        float radius = 120.0f; 
+        float radius = 120.0f;
         float x = radius * cos(angle);
         float y = radius * sin(angle);
         drawLotus(x, y, t + i * 0.5f);
@@ -131,7 +132,7 @@ void draw(void) {
 
     //desactivation du shader
     glUseProgram(0);
-    printf("Temps écoulé: %.2f secondes\n", t0);
+    //printf("Temps écoulé: %.2f secondes\n", t0);
     //maj du temps
     t += dt;
 }
@@ -187,8 +188,8 @@ static void drawKoiFish(float centerX, float centerY, float t) {
     tailVertices[7] = y - (fishLength/2 + 25) * sin(angle) + tailWidth/2 * cos(angle) * sin(t * 5);
 
     //draw le corps
-    glBindVertexArray(_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+    glBindVertexArray(_vao_intro);
+    glBindBuffer(GL_ARRAY_BUFFER, _vbo_intro);
     glBufferData(GL_ARRAY_BUFFER, numBodyPoints * 2 * sizeof(float), vertices, GL_DYNAMIC_DRAW);
 
     GLint posLoc = glGetAttribLocation(_pId_intro, "position");
@@ -369,8 +370,8 @@ static void drawLotus(float x, float y, float t) {
     }
 
     // Dessiner les pétales de lotus
-    glBindVertexArray(_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+    glBindVertexArray(_vao_intro);
+    glBindBuffer(GL_ARRAY_BUFFER, _vbo_intro);
     glBufferData(GL_ARRAY_BUFFER, numPoints * 2 * sizeof(float), vertices, GL_DYNAMIC_DRAW);
 
     GLint posLoc = glGetAttribLocation(_pId_intro, "position");

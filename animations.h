@@ -32,23 +32,22 @@ extern "C" {
   extern void animationsInit(void);
 
   /* wf_cube.c */
-  extern void wf_cube(int state);
+  //extern void wf_cube(int state);
   /* basic_audio.v */
-  extern void basic_audio(int state);
+  //extern void basic_audio(int state);
   /* vhs.c */
   //extern void vhs(int state);
   extern void arbre(int state);
   extern void montagne(int state);
   extern void balle_song(int state);
   extern void eau_scene(int state);
-  extern void credits(int state);
-  //extern void test_lumi(int state);
   extern void intro_arabesque(int state);
   extern void montagne_arbre(int state);
   extern void texte1(int state);
   extern void texte2(int state);
   extern void texte3(int state);
   extern void texte4(int state);
+  extern void credits(int state);
   extern void shader_test(int state);
 
 #ifdef __cplusplus

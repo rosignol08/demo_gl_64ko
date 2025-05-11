@@ -199,7 +199,7 @@ void generateLSystem(void)
                     fprintf(stderr, "Erreur de réallocation mémoire\n");
                     exit(EXIT_FAILURE);
                 }
-                printf("    Réallocation de temp à %zu octets\n", tempSize);
+                //printf("    Réallocation de temp à %zu octets\n", tempSize);
             }
 
             if (_lsystem[j] == 'X')

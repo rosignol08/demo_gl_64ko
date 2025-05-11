@@ -186,17 +186,17 @@ void montagne(int state)
         }
         if (_gridId)
         {
-            glDeleteVertexArrays(1, &_gridId);
+            //gl4dgDelete(_gridId);
             _gridId = 0;
         }
         if (_sphereId)
         {
-            glDeleteVertexArrays(1, &_sphereId);
+            //gl4dgDelete(_sphereId);
             _sphereId = 0;
         }
         if (_quadId)
         {
-            glDeleteVertexArrays(1, &_quadId);
+            //gl4dgDelete(_quadId);
             _quadId = 0;
         }
         if (permTexId)
@@ -242,10 +242,165 @@ void montagne(int state)
 }
 
 /*!\brief initialise les paramètres OpenGL et les données. */
-void init(void)
-{
-    _pId = gl4duCreateProgram("<vs>shaders/lum_montagne.vs", "<fs>shaders/lum_montagne.fs", NULL);
-    _riviere_pId = gl4duCreateProgram("<vs>shaders/riviere.vs", "<fs>shaders/riviere.fs", NULL);
+void init(void){
+    //Nouvelle manière include direct avec imfs (merci julien)
+    const char * imfs = "<imfs>riviere.fs</imfs>\n"
+    #ifdef __GLES4D__
+        "#version 300 es\n"
+        "precision mediump float;\n"
+    #else
+        "#version 330 core\n"
+    #endif
+"uniform float time,waveStrength,waveSpeed;\n"
+"uniform int isWater;\n"
+"uniform vec3 lightPosition,lightColor;\n"
+"uniform float shininess,noiseScale;\n"
+"uniform sampler2D permTexture,gradTexture;\n"
+"in vec3 normal,fragPos;\n"
+"in vec2 texCoord;\n"
+"out vec4 FragColor;\n"
+"vec3 applyWaves(vec3 position,vec3 normal)\n"
+"{\n"
+"  float amplitude=waveStrength*.05,wave=sin(position.z*10.-time*waveSpeed),turbulence=sin(position.x*5.+time*waveSpeed);\n"
+"  position.y+=(wave*amplitude*1.5+turbulence*amplitude*.3)*(1.+(texture(permTexture,texCoord*noiseScale+vec2(time*.05,-time*.03)).x*2.-1.)*.3);\n"
+"  return position;\n"
+"}\n"
+"void main()\n"
+"{\n"
+"  vec3 norm=normalize(normal),wavyPos=applyWaves(fragPos,norm),lightDir=normalize(lightPosition-wavyPos);\n"
+"  vec2 noiseUV=texCoord*noiseScale+vec2(cos(time*.2)*.005,-time*.005);\n"
+"  vec4 noise=texture(permTexture,noiseUV);\n"
+"  norm=normalize(mix(mix(normal,normalize(cross(applyWaves(fragPos+vec3(.005,0,0),vec3(0,1,0))-applyWaves(fragPos-vec3(.005,0,0),vec3(0,1,0)),applyWaves(fragPos+vec3(0,0,.005),vec3(0,1,0))-applyWaves(fragPos-vec3(0,0,.005),vec3(0,1,0)))),.5),normalize(vec3((-texture(permTexture,noiseUV+vec2(.01,0)).x+noise.x)*waveStrength*10.,1,(-texture(permTexture,noiseUV+vec2(0,.01)).x+noise.x)*waveStrength*10.)),.3));\n"
+"  float waterRipple=noise.x*.2,backLight=max(0.,dot(-normalize(-wavyPos),norm))*.5,diff=max(dot(norm,lightDir),0.);\n"
+"  wavyPos=.5*diff*lightColor;\n"
+"  diff=pow(max(dot(norm,lightDir),0.),shininess*(2.+sin(time)));\n"
+"  FragColor=vec4(mix(vec3(0,.4,.8),vec3(0,.6,1),waterRipple)*(.2*lightColor+backLight*vec3(.2,.3,.5)+(vec3(.05,.05,.1)*sin(time*.5)*.5+.5)+wavyPos)+.3*(1.+waterRipple*2.)*diff*lightColor+wavyPos*(.3+sin(time*1.3)*.1),1);\n"
+"}";
+
+    const char * imvs = "<imvs>riviere.vs</imvs>\n"
+    #ifdef __GLES4D__
+        "#version 300 es\n"
+    #else
+        "#version 330 core\n"
+    #endif
+    "layout(location=0)in vec3 vPosition;\n"
+    "layout(location=1)in vec3 vNormal;\n"
+    "layout(location=2)in vec2 vTexCoord;\n"
+    "uniform mat4 projectionMatrix,modelMatrix,viewMatrix;\n"
+    "uniform float waveStrength,waveSpeed,time,movementFactor,amplFactor;\n"
+    "out vec3 normal,fragPos;\n"
+    "out vec2 texCoord;\n"
+    "void main()\n"
+    "{\n"
+    "  vec3 pos=vPosition;\n"
+    "  gl_Position=projectionMatrix*viewMatrix*modelMatrix*vec4(pos,1);\n"
+    "  normal=vNormal;\n"
+    "  fragPos=vec3(modelMatrix*vec4(pos,1));\n"
+    "  texCoord=vTexCoord;\n"
+    "}\n";
+    _riviere_pId = gl4duCreateProgram(imvs, imfs, NULL);
+    imfs = "<imfs>lum_montagne.fs</imfs>\n"
+    #ifdef __GLES4D__
+        "#version 300 es\n"
+        "precision mediump float;\n"
+    #else
+        "#version 330 core\n"
+    #endif
+    "uniform vec4 sdiffus,sambient,sspeculaire,l0diffus,l0speculaire,l1diffus,l1speculaire,lambient;\n"
+    "uniform mat4 projectionMatrix,viewMatrix,modelMatrix;\n"
+    "uniform vec4 Lp0,Lp1;\n"
+    "uniform float temps;\n"
+    "uniform int has_noise,sky;\n"
+    "in vec4 vmPos;\n"
+    "in vec3 vmNormal;\n"
+    "in vec2 tc;\n"
+    "out vec4 fragColor;\n"
+    "uniform sampler2D permTexture,gradTexture;\n"
+    "#define ONE 0.00390625\n"
+    "#define ONEHALF 0.001953125\n"
+    "float fade(float t)\n"
+    "{\n"
+    "  return t*t*t*(t*(t*6.-15.)+10.);\n"
+    "}\n"
+    "float noise(vec2 P)\n"
+    "{\n"
+    "  vec2 Pi=ONE*floor(P)+ONEHALF;\n"
+    "  P=fract(P);\n"
+    "  vec2 grad10=texture(permTexture,Pi+vec2(ONE,0)).xy*4.-1.,grad01=texture(permTexture,Pi+vec2(0,ONE)).xy*4.-1.,grad11=texture(permTexture,Pi+vec2(ONE)).xy*4.-1.;\n"
+    "  Pi=mix(vec2(dot(texture(permTexture,Pi).xy*4.-1.,P),dot(grad01,P-vec2(0,1))),vec2(dot(grad10,P-vec2(1,0)),dot(grad11,P-vec2(1))),fade(P.x));\n"
+    "  return mix(Pi.x,Pi.y,fade(P.y));\n"
+    "}\n"
+    "float noise(vec3 P)\n"
+    "{\n"
+    "  vec3 Pi=ONE*floor(P)+ONEHALF;\n"
+    "  P=fract(P);\n"
+    "  float perm00=texture(permTexture,Pi.xy).w;\n"
+    "  vec3 grad001=texture(permTexture,vec2(perm00,Pi.z+ONE)).xyz*4.-1.;\n"
+    "  float perm01=texture(permTexture,Pi.xy+vec2(0,ONE)).w;\n"
+    "  vec3 grad011=texture(permTexture,vec2(perm01,Pi.z+ONE)).xyz*4.-1.;\n"
+    "  float perm10=texture(permTexture,Pi.xy+vec2(ONE,0)).w;\n"
+    "  vec3 grad101=texture(permTexture,vec2(perm10,Pi.z+ONE)).xyz*4.-1.;\n"
+    "  float perm11=texture(permTexture,Pi.xy+vec2(ONE)).w;\n"
+    "  vec3 grad111=texture(permTexture,vec2(perm11,Pi.z+ONE)).xyz*4.-1.;\n"
+    "  vec4 n_x=mix(vec4(dot(texture(permTexture,vec2(perm00,Pi.z)).xyz*4.-1.,P),dot(grad001,P-vec3(0,0,1)),dot(texture(permTexture,vec2(perm01,Pi.z)).xyz*4.-1.,P-vec3(0,1,0)),dot(grad011,P-vec3(0,1,1))),vec4(dot(texture(permTexture,vec2(perm10,Pi.z)).xyz*4.-1.,P-vec3(1,0,0)),dot(grad101,P-vec3(1,0,1)),dot(texture(permTexture,vec2(perm11,Pi.z)).xyz*4.-1.,P-vec3(1,1,0)),dot(grad111,P-vec3(1))),fade(P.x));\n"
+    "  vec2 n_xy=mix(n_x.xy,n_x.zw,fade(P.y));\n"
+    "  return mix(n_xy.x,n_xy.y,fade(P.z));\n"
+    "}\n"
+    "vec2 rug()\n"
+    "{\n"
+    "  vec2 no=vec2(0);\n"
+    "  for(float freq=1.,amp=1.;freq<33.;freq*=2.,amp/=2.)\n"
+    "    no+=vec2(amp*noise(freq*30.*tc.xy),amp*noise(freq*30.*tc.yx));\n"
+    "  return no;\n"
+    "}\n"
+    "float rug2()\n"
+    "{\n"
+    "  float no=0.;\n"
+    "  for(float freq=1.,amp=1.;freq<8.;freq*=2.,amp/=2.)\n"
+    "    no+=amp*noise(freq*.3*vmPos.xyz+vec3(0,0,temps));\n"
+    "  float cloudCoverage=clamp(temps*.05,.1,.9);\n"
+    "  return smoothstep(cloudCoverage,cloudCoverage+.2,no);\n"
+    "}\n"
+    "void main()\n"
+    "{\n"
+    "  if(sky!=0)\n"
+    "    {\n"
+    "      float nu=rug2();\n"
+    "      fragColor=mix(vec4(.5,.7,1,1),vec4(1),smoothstep(0.,1.,nu));\n"
+    "      return;\n"
+    "    }\n"
+    "  const vec3 vue=vec3(0,0,-1);\n"
+    "  vec3 Ld0=normalize((vmPos-viewMatrix*Lp0).xyz),Ld1=normalize((vmPos-viewMatrix*Lp1).xyz),n=normalize(vmNormal),T=vec3(1,0,0),B=cross(T,n);\n"
+    "  vec2 no=rug();\n"
+    "  n=normalize(4.*n+no.x*T+no.y*B);\n"
+    "  float intensite_diffus0=clamp(dot(n,-Ld0),0.,1.),intensite_diffus1=clamp(dot(n,-Ld1),0.,1.);\n"
+    "  B=reflect(Ld0,n);\n"
+    "  Ld0=reflect(Ld1,n);\n"
+    "  fragColor=mix(sambient*lambient,intensite_diffus0*sdiffus*l0diffus+intensite_diffus1*sdiffus*l1diffus,.75)+pow(clamp(dot(B,-vue),0.,1.),4e2)*l0speculaire*sspeculaire+pow(clamp(dot(Ld0,-vue),0.,1.),4e2)*l1speculaire*sspeculaire;\n"
+    "}\n";
+
+    imvs = "<imvs>lum_montagne.vs</imvs>\n"
+    #ifdef __GLES4D__
+        "#version 300 es\n"
+    #else
+        "#version 330 core\n"
+    #endif
+    "layout (location = 0) in vec3 vsiPosition;\n"
+    "layout (location = 1) in vec3 vsiNormal;\n"
+    "layout (location = 2) in vec2 vsiTexCoord;\n"
+    "uniform mat4 projectionMatrix, viewMatrix, modelMatrix;\n"
+    "out vec4 vmPos;\n"
+    "out vec3 vmNormal;\n"
+    "out vec2 tc;\n"
+    "void main(void) {\n"
+    "  vmPos = viewMatrix * modelMatrix * vec4(vsiPosition, 1.0);\n"
+    "  vmNormal = (transpose(inverse(viewMatrix * modelMatrix)) * vec4(vsiNormal, 0.0)).xyz;\n"
+    "  gl_Position = projectionMatrix * vmPos;\n"
+    "  tc = vsiTexCoord;\n"
+    "}\n";
+    _pId = gl4duCreateProgram(imvs, imfs, NULL);
+    //_pId = gl4duCreateProgram("<vs>shaders/lum_montagne.vs", "<fs>shaders/lum_montagne.fs", NULL);
+    //_riviere_pId = gl4duCreateProgram("<vs>shaders/riviere.vs", "<fs>shaders/riviere.fs", NULL);
     /* générer le terrain */
     GLfloat *heightmap = gl4dmTriangleEdge(33, 33, 0.7f);
     /* Créer une grid */

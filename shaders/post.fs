@@ -22,7 +22,7 @@ void main() {
     vec3 bloomTotal = vec3(0.0);
     float totalWeight = 0.0;
 
-    float bloomStrength = 2.5;
+    float bloomStrength = 3.5;
     float bloomRadius = 2.0; // un peu plus large car moins d'échantillons
     int echantillons = 7;
 
