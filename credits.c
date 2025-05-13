@@ -75,7 +75,7 @@ static void init(void)
            "Romaric CHAFFRAY\n\n\n"
            "Remerciment:\n"
            "Dounia HULLOT, Aleksandar ILIC\n"
-           "Julien BOUTICOURT, Mistral"
+           "Julien BOUTICOURT, Mistral "
            "Farès BELHADJ\n\n\n");
   /*
     initText(&_textTexId2,

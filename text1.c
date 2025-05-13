@@ -20,12 +20,15 @@ static void init(void);
 static void draw(void);
 /* Animation de crédits */
 void texte1(int state)
-{
+{   
+    static int ttf_initialized = 0; // Variable pour vérifier si TTF a été initialisé
 
     switch (state)
     {
     case GL4DH_INIT:
         init();
+                ttf_initialized = 1; // Marquer TTF comme initialisé
+
         return;
 
     case GL4DH_FREE:
@@ -43,8 +46,8 @@ void texte1(int state)
             glDeleteProgram(_pId_texte1);
             _pId_texte1 = 0;
         }
-        static int firstTime = 1;  // Cette variable est rendue accessible ici
-        firstTime = 1;
+        //static int firstTime = 1;  // Cette variable est rendue accessible ici
+        //firstTime = 1;
   
         glBindTexture(GL_TEXTURE_2D, 0);
         return;
@@ -141,7 +144,7 @@ static void draw(void)
     gl4duBindMatrix("modelViewMatrix");
     gl4duLoadIdentityf();
 
-    // Position les crédits au centre avec une légère animation
+    // Position les crédits au centre
     gl4duScalef(0.90, 0.90, 1.0);
     gl4duTranslatef(0.0, 0.10, -2.30);
 
@@ -159,17 +162,17 @@ static void initText(GLuint *ptId, const char *text)
     SDL_Color c = {229, 229, 229, 255}; // Couleur blanc gris
     SDL_Surface * d = NULL, * s = NULL;
     TTF_Font *font = NULL;
-    if (firstTime)
-    {
-        // init de la bibliothèque SDL2 ttf
-        if(TTF_WasInit() == 0) {
-            if(TTF_Init() == -1) {
-              fprintf(stderr, "TTF_Init: %s\n", TTF_GetError());
-              exit(2);
-            }
-            firstTime = 0;
-          }
-        }
+    //if (firstTime)
+    //{
+    //    // init de la bibliothèque SDL2 ttf
+    //    if(TTF_WasInit() == 0) {
+    //        if(TTF_Init() == -1) {
+    //          fprintf(stderr, "TTF_Init: %s\n", TTF_GetError());
+    //          exit(2);
+    //        }
+    //        firstTime = 0;
+    //      }
+    //    }
     if (*ptId == 0)
     {
         // initialisation de la texture côté OpenGL

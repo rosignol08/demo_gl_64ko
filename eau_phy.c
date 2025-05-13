@@ -11,9 +11,10 @@
 #include <GL4D/gl4dg.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdbool.h>
 
 #define MAX_NEIGHBOURS 32
-#define HASH_SIZE 2000
+#define HASH_SIZE 3000
 #define CELL_SIZE 0.1f // taille des cellules pour la grille spatiale
 
 // pour la gravitée radiale
@@ -90,12 +91,15 @@ static void mobile_draw(void);
 /* on créé une variable pour stocker l'identifiant du programme GPU */
 GLuint _pId_phy = 0;
 GLuint _pId_phy_particules = 0;
-
+GLuint _pId_water = 0;
 GLuint _quad_phy = 0;
 
 // VBO et VAO pour les particules
 GLuint particle_vbo;
 GLuint particle_vao;
+
+//pour les rectangles d'eau
+GLuint _water_vao, _water_vbo;
 
 // les poissons qui nagent
 float poission_position[2] = {0.0f, 0.0f};
@@ -120,7 +124,8 @@ struct mobile_t
     vec3d_t p, v;
     GLfloat r;
     GLfloat color[4];
-
+    float activation_time; //pour dessiner pas en meme temps
+    bool is_active;         //pour activer/désactiver des particules
     // Variables SPH
     float density;
     float pressure;
@@ -214,6 +219,18 @@ void eau_scene(int state)
              _nb_poisson = 0;
              _max_poisson = 0;
          }
+         if (_water_vao) {
+    glDeleteVertexArrays(1, &_water_vao);
+    _water_vao = 0;
+}
+if (_water_vbo) {
+    glDeleteBuffers(1, &_water_vbo);
+    _water_vbo = 0;
+}
+if (_pId_water) {
+    glDeleteProgram(_pId_water);
+    _pId_water = 0;
+}
     }
         return;
     case GL4DH_UPDATE_WITH_AUDIO:
@@ -437,60 +454,159 @@ static void collide_with_rotated_oval(mobile_t *m, const oval3d_t *o, float e)
 }
 
 // fonction pour mettre à jour la position des poissons
-void update_fish_positions(void)
-{
+void update_fish_positions(float dt) {
     static float time = 0.0f;
-    time += 0.1f;
-    // Mouvement en diagonale avec variation en Y
-    float base_x = -0.8f + time * 0.05f;                     // Avance en X de gauche à droite
-    float base_y = -0.8f + time * 0.3f;                      // Avance en Y en diagonale
-    poission_position_y += 0.00085f + (0.001f * sinf(time)); // Oscillation en Y
+    static int phase = 0; // 0: move right, 1: move up, 2: move right again
+    static float initial_y_phase2 = 0.0f;
 
-    // Ajoute une légère oscillation en Y avec cosinus
-    poission_position[0] = base_x;
-    poission_position[1] = -0.42f + poission_position_y; // base_y * (cosf(time * 3.0f) * 0.05f);
+    time += dt;
 
-    // Si le poisson sort de l'écran, le faire revenir de l'autre côté
-    //    if (poission_position[0] > 1.0f) {
-    //        time = 0.0f;  // Réinitialiser le temps
-    //    }
+    // Changement de phase
+    if (phase == 0 && poission_position[0] >= 0.8f) {
+        phase = 1;
+    } else if (phase == 1 && poission_position[1] >= 0.7f) {
+        phase = 2;
+        initial_y_phase2 = poission_position[1]; // Fixe Y au moment de la transition
+    }
 
-    // Maj de la position du poisson dans le tableau _ovals
-    if (_nb_poisson > 0)
-    {
+    // === Déplacements selon la phase ===
+    if (phase == 0) {
+        // Phase 0 : avancer vers la droite avec montée linéaire
+        poission_position[0] = -0.8f + time * 0.1f;
+        poission_position[1] = -0.5f + time * 0.02f; // Starting low and rising linearly
+        // Small vertical oscillation added to the linear upward movement
+        //poission_position[1] += ((0.02f * sinf(time)) * dt )* 0.00f;
+    }
+    else if (phase == 1) {
+        // Phase 1 : monter avec légère oscillation horizontale
+        poission_position[0] = 0.8f + 0.01f * sinf(time * 2.0f);
+        poission_position[1] += dt * 0.15f; // montée linéaire
+    }
+    else if (phase == 2) {
+        // Phase 2 : avancer vers la droite, sans changer Y
+        poission_position[0] += dt * 0.05f;
+        poission_position[1] = initial_y_phase2;
+    }
+
+    // === Orientation ===
+    float angle = 0.0f;
+    if (phase == 0 || phase == 2) {
+        // rotate the angle through full 360 degrees
+        angle = 90.0f; // orientation horizontale
+        //printf("Fish angle: %.1f degrees\n", angle * (180.0f / M_PI));//angle = 90.0f; // orientation horizontale
+    } else if (phase == 1) {
+        angle = 160.0f; // orientation verticale
+    }
+
+
+    // === Mise à jour des données du poisson ===
+    if (_nb_poisson > 0) {
         _ovals[0].x = poission_position[0];
         _ovals[0].y = poission_position[1];
-
-        // Faire pointer le poisson dans la direction du mouvement
-        // L'angle est calculé en fonction de la direction du mouvement + oscillation
-        _ovals[0].angle_x = atan2f(0.03f + 0.1f * -sinf(time * 3.0f), 0.05f);
+        _ovals[0].angle_x = angle;
     }
 }
+
+//fonction où le poisson avance et recule 
+void update_fish_positions_stagne(float dt){
+    static float time = 0.0f;
+    static int phase = 0; // 0: move right, 1: move up, 2: move down
+    static float target_y = 0.0f;
+    time += dt;
+    // Update fish state based on position
+    if (phase == 0 && poission_position[0] >= 0.8f) {
+        phase = 1; // Switch to moving up
+    }
+    else if (phase == 1 && poission_position[1] >= 0.5f) {
+        phase = 2; // Switch to moving down
+        target_y = 0.0f;
+    }
+    else if (phase == 2 && poission_position[1] <= -0.20f) {
+        phase = 1; // Switch back to moving up
+    }
+    // Update position based on current phase
+    if (phase == 0) {
+        // Phase 0: Move right with a slight oscillation in Y until x = 0.5
+        poission_position[0] = -0.8f + time * 0.05f;//+= 0.01f; // Move right
+        // Add oscillation in Y
+        static float local_y_offset = 0.0f;
+        local_y_offset += 0.0085f * dt + (0.001f * sinf(time));
+        poission_position[1] = -0.5f + local_y_offset; // Move up and down
+    }
+    else if (phase == 1) {
+        // Phase 1: Move up + oscillate in X
+        poission_position[0] = 0.8f + 0.01f * sinf(time * 2.0f); // Oscillate in X
+        poission_position[1] += 0.08f * dt; // Move up slowly
+    }
+    else if (phase == 2) {
+        // Phase 2: Move down quickly
+        poission_position[1] -= 0.03f * dt; // Move down fast
+        poission_position[0] = 0.8f + 0.01f * sinf(time * 3.0f); // Slight oscillation
+    }
+    
+    // Update fish orientation based on movement direction
+    float angle = 0.0f;
+    if (phase == 0 || phase == 2) {
+        // rotate the angle through full 360 degrees
+        angle = 90.0f; // orientation horizontale
+        //printf("Fish angle: %.1f degrees\n", angle * (180.0f / M_PI));//angle = 90.0f; // orientation horizontale
+    } else if (phase == 1) {
+        angle = 160.0f; // orientation verticale
+    }
+    
+    // Update fish in the oval array
+    if (_nb_poisson > 0) {
+        _ovals[0].x = poission_position[0];
+        _ovals[0].y = poission_position[1];
+        _ovals[0].angle_x = angle;
+    }
+}
+
+///test poisson
+GLuint _vao_fish = 0;
+GLuint _vbo_fish = 0;
+
+// Cette fonction initialise les VAO/VBO pour les poissons
+void init_fish_vao(void) {
+    glGenVertexArrays(1, &_vao_fish);
+    glGenBuffers(1, &_vbo_fish);
+}
+
+// Libérer les ressources
+void cleanup_fish_vao(void) {
+    if (_vao_fish) {
+        glDeleteVertexArrays(1, &_vao_fish);
+        _vao_fish = 0;
+    }
+    if (_vbo_fish) {
+        glDeleteBuffers(1, &_vbo_fish);
+        _vbo_fish = 0;
+    }
+}
+
 
 void oval_draw_all(void)
 {
     GLfloat *oval_data = malloc(4 * _nb_poisson * sizeof *oval_data); // 4 pour x,y,w,h
     assert(oval_data);
-
+// allocation séparée pour les angles
+    float *angles = malloc(_nb_poisson * sizeof(float));
+    assert(angles);
     for (int i = 0; i < _nb_poisson; ++i)
     {
         oval_data[4 * i + 0] = _ovals[i].x;
         oval_data[4 * i + 1] = _ovals[i].y;
         oval_data[4 * i + 2] = _ovals[i].w;
         oval_data[4 * i + 3] = _ovals[i].h;
+        angles[i] = _ovals[i].angle_x;
     }
     // Set up an attribute for angles if needed
     glUseProgram(_pId_phy);
-    // allocation séparée pour les angles
-    float *angles = malloc(_nb_poisson * sizeof(float));
-    assert(angles);
-    for (int i = 0; i < _nb_poisson; ++i)
-    {
-        angles[i] = _ovals[i].angle_x;
-    }
-    glUniform1fv(glGetUniformLocation(_pId_phy, "poisson_angles"), _nb_poisson, angles);
-    glUseProgram(_pId_phy);
+
+    //angles[0] = M_PI / 4;
     glUniform4fv(glGetUniformLocation(_pId_phy, "poisson"), _nb_poisson, oval_data);
+    glUniform1fv(glGetUniformLocation(_pId_phy, "poisson_angles"), _nb_poisson, angles);
+
     glUniform1i(glGetUniformLocation(_pId_phy, "nb_poisson"), _nb_poisson);
 
     // set la couleur en blanc
@@ -828,27 +944,244 @@ void init(void)
     _g.y = -9.81f;
     _quad_phy = gl4dgGenQuadf();
 
+
+const char * imfs = "<imfs>water_phy.fs</imfs>\n"
+#ifdef __GLES4D__
+    "#version 300 es\n"
+    "precision mediump float;\n"
+#else
+    "#version 330 core\n"
+#endif
+    "uniform float time;\n"
+    "uniform vec2 resolution;\n"
+    "uniform int dore;\n" // Nouvel uniform pour contrôler l'apparence dorée
+    "out vec4 fragColor;\n"
+    "\n"
+    "// Fonction de bruit simple 2D\n"
+    "float hash(vec2 p) {\n"
+    "    p = fract(p * vec2(123.34, 345.45));\n"
+    "    p += dot(p, p + 34.345);\n"
+    "    return fract(p.x * p.y);\n"
+    "}\n"
+    "\n"
+    "// Fonction de bruit Perlin-like simplifiée\n"
+    "float noise(vec2 p) {\n"
+    "    vec2 i = floor(p);\n"
+    "    vec2 f = fract(p);\n"
+    "    \n"
+    "    float a = hash(i);\n"
+    "    float b = hash(i + vec2(1.0, 0.0));\n"
+    "    float c = hash(i + vec2(0.0, 1.0));\n"
+    "    float d = hash(i + vec2(1.0, 1.0));\n"
+    "    \n"
+    "    vec2 u = f * f * (3.0 - 2.0 * f); // Fonction de lissage\n"
+    "    \n"
+    "    return mix(mix(a, b, u.x), \n"
+    "               mix(c, d, u.x), u.y);\n"
+    "}\n"
+    "\n"
+    "// Fonction de bruit fractale (FBM - Fractal Brownian Motion)\n"
+    "float fbm(vec2 p) {\n"
+    "    float value = 0.0;\n"
+    "    float amplitude = 0.5;\n"
+    "    float frequency = 3.0;\n"
+    "    \n"
+    "    // Ajoutez plusieurs octaves de bruit\n"
+    "    for (int i = 0; i < 5; i++) {\n"
+    "        value += amplitude * noise(p * frequency);\n"
+    "        frequency *= 2.0;\n"
+    "        amplitude *= 0.5;\n"
+    "    }\n"
+    "    \n"
+    "    return value;\n"
+    "}\n"
+    "\n"
+    "void main() {\n"
+    "    vec2 uv = gl_FragCoord.xy / resolution.xy;\n"
+    "    \n"
+    "    // Bruit de base pour la forme des vagues\n"
+    "    float baseNoise = fbm(vec2(uv.x * 4.0 + time * 0.2, uv.y * 4.0));\n"
+    "    \n"
+    "    // Bruit pour la déformation temporelle\n"
+    "    float timeNoise = fbm(vec2(uv.x * 2.0 - time * 0.1, uv.y * 2.0 + time * 0.15));\n"
+    "    \n"
+    "    // Combiner les bruits pour l'animation des vagues\n"
+    "    float wavePattern = baseNoise * 0.6 + timeNoise * 0.4;\n"
+    "    wavePattern = sin(wavePattern * 6.28 + time) * 0.5 + 0.5;\n"
+    "    \n"
+    "    // Couleur de base (bleue ou dorée selon la valeur de l'uniform dore)\n"
+    "    vec4 waterColor;\n"
+    "    if (dore == 1) {\n"
+    "        // Couleur de base dorée si dore == 1\n"
+    "        waterColor = vec4(1.0, 0.843, 0.0, 0.5);\n"
+    "        \n"
+    "        // Variations de couleur dorée basées sur le motif de vagues\n"
+    "        waterColor.r += wavePattern * 0.2;\n"
+    "        waterColor.g += wavePattern * 0.1;\n"
+    "        \n"
+    "        // Création d'une brillance dorée\n"
+    "        float goldHighlight = pow(fbm(vec2(uv.x * 12.0 + time * 0.4, uv.y * 12.0 - time * 0.3)), 4.0) * 0.7;\n"
+    "        goldHighlight += pow(fbm(vec2(uv.y * 18.0 - time * 0.5, uv.x * 9.0 + time * 0.6)), 3.0) * 0.4;\n"
+    "        \n"
+    "        // Ajouter des détails plus fins seulement en surface\n"
+    "        goldHighlight *= smoothstep(0.3, 0.7, wavePattern);\n"
+    "        \n"
+    "        // Ajouter des reflets dorés plus intenses\n"
+    "        waterColor.rg += vec2(goldHighlight * 0.5);\n"
+    "        waterColor.b += goldHighlight * 0.3; // Un peu de bleu pour des reflets plus réalistes\n"
+    "    } else {\n"
+    "        // Couleur bleue d'origine si dore == 0\n"
+    "        waterColor = vec4(0.0, 0.3, 0.7, 0.4);\n"
+    "        waterColor.b += wavePattern * 0.3;\n"
+    "        waterColor.g += wavePattern * 0.1;\n"
+    "        \n"
+    "        // Création d'une brillance de surface aléatoire\n"
+    "        float highlight = pow(fbm(vec2(uv.x * 10.0 + time * 0.3, uv.y * 10.0 - time * 0.2)), 8.0) * 0.5;\n"
+    "        highlight += pow(fbm(vec2(uv.y * 15.0 - time * 0.4, uv.x * 7.0 + time * 0.5)), 4.0) * 0.3;\n"
+    "        \n"
+    "        // Ajouter des détails plus fins seulement en surface\n"
+    "        highlight *= smoothstep(0.4, 0.6, wavePattern);\n"
+    "        \n"
+    "        // Ajouter des reflets aléatoires\n"
+    "        waterColor.rgb += vec3(highlight);\n"
+    "    }\n"
+    "    \n"
+    "    fragColor = waterColor;\n"
+    "}\n";
+const char * imvs = "<imvs>water_phy.vs</imvs>\n"
+#ifdef __GLES4D__
+    "#version 300 es\n"
+#else
+    "#version 330 core\n"
+#endif
+    "in vec2 position;\n"
+    "void main() {\n"
+    "    gl_Position = vec4(position, 0.0, 1.0);\n"
+    "}\n";
+
+// Créer le programme de shader pour l'eau
+_pId_water = gl4duCreateProgram(imvs, imfs, NULL);
+imfs = "<imfs>calculs.fs</imfs>\n"
+#ifdef __GLES4D__
+    "#version 300 es\n"
+    "precision mediump float;\n"
+#else
+    "#version 330 core\n"
+#endif
+"out vec4 fragColor;\n"
+"in vec2 fcoord;\n"
+"uniform vec4 rectangles[10],rect_color;\n"
+"uniform int nb_rects;\n"
+"uniform float rect_angles[10];\n"
+"uniform vec4 poisson[8],poisson_color;\n"
+"uniform int nb_poisson;\n"
+"uniform float poisson_angles;\n"
+"void main()\n"
+"{\n"
+"  for(int i=0;i<nb_rects;i++)\n"
+"    {\n"
+"      vec4 rect=rectangles[i];\n"
+"      float angle=rect_angles[i];\n"
+"      vec2 localCoord=fcoord-rect.xy;\n"
+"      float cosAngle=cos(angle);\n"
+"      angle=sin(angle);\n"
+"      localCoord=vec2(cosAngle*localCoord.x+angle*localCoord.y,-angle*localCoord.x+cosAngle*localCoord.y);\n"
+"      if(localCoord.x>=0.&&localCoord.x<=rect.z&&localCoord.y>=0.&&localCoord.y<=rect.w)\n"
+"        {\n"
+"          fragColor=rect_color;\n"
+"          return;\n"
+"        }\n"
+"    }\n"
+"  for(int i=0;i<nb_poisson;i++)\n"
+"    {\n"
+"      vec4 fish=poisson[i];\n"
+"      float angle=poisson_angles;\n"
+"      vec2 localCoord=fcoord-fish.xy;\n"
+"      float cosAngle=cos(angle);\n"
+"      angle=sin(angle);\n"
+"      localCoord=vec2(cosAngle*localCoord.x+angle*localCoord.y,-angle*localCoord.x+cosAngle*localCoord.y);\n"
+"      if(localCoord.x*localCoord.x/(fish.z*fish.z/4.)+localCoord.y*localCoord.y/(fish.w*fish.w/4.)<=1.)\n"
+"        {\n"
+"          fragColor=poisson_color;\n"
+"          if(length(localCoord-vec2(fish.z*.2,-fish.z*.35))<fish.w*.1)\n"
+"            fragColor=vec4(0,0,0,1);\n"
+"          vec2 finBase1=vec2(-fish.z*.1,0),v0=vec2(fish.z*.2,0)-finBase1,v1=vec2(fish.z*.05,fish.w*.5)-finBase1;\n"
+"          finBase1=localCoord-finBase1;\n"
+"          float dot00=dot(v0,v0),dot01=dot(v0,v1),dot02=dot(v0,finBase1),dot11=dot(v1,v1),dot12=dot(v1,finBase1),invDenom=1./(dot00*dot11-dot01*dot01);\n"
+"          dot11=(dot11*dot02-dot01*dot12)*invDenom;\n"
+"          dot00=(dot00*dot12-dot01*dot02)*invDenom;\n"
+"          if(dot11>=0.&&dot00>=0.&&dot11+dot00<=1.)\n"
+"            fragColor=poisson_color*.6;\n"
+"          return;\n"
+"        }\n"
+"    }\n"
+"  fragColor=vec4(0);\n"
+"}\n";
+imvs = "<imvs>identity.vs</imvs>\n"
+#ifdef __GLES4D__
+    "#version 300 es\n"
+#else
+    "#version 330 core\n"
+#endif
+    "layout(location=0)in vec3 pos;\n"
+    "layout(location=1)in vec3 normal;\n"
+    "layout(location=2)in vec2 texCoord;\n"
+    "out vec2 fcoord;\n"
+    "void main()\n"
+    "{\n"
+    "  gl_Position=vec4(pos,1);\n"
+    "  fcoord=texCoord*2.-1.;\n"
+    "}\n";
     /* créer un programme GPU pour OpenGL (en GL4D) */
-    _pId_phy = gl4duCreateProgram("<vs>shaders/identity.vs", "<fs>shaders/calculs.fs", NULL);
+    _pId_phy = gl4duCreateProgram(imvs, imfs, NULL);
+    
     /* créer un programme GPU pour OpenGL (en GL4D) */
     _pId_phy_particules = gl4duCreateProgram("<vs>shaders/parti.vs", "<fs>shaders/parti.fs", NULL);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-    mobile_init(2000);
+// Réinitialiser le temps d'activation des particules
+    double current_time = gl4dGetElapsedTime() / 1000.0;
+    
+    // Réinitialiser les particules et les rendre immédiatement actives
+    if (_mobiles) {
+        for (int i = 0; i < _nb_mobiles; i++) {
+            _mobiles[i].is_active = true; // Forcer l'activation immédiate
+            _mobiles[i].activation_time = current_time;
+            
+            // Repositionner à la zone de spawn
+            float min_x = 0.5f;
+            float max_x = 0.9f;
+            float min_y = 0.5f;
+            float max_y = 0.9f;
+            _mobiles[i].p.x = min_x + (max_x - min_x) * gl4dmSURand();
+            _mobiles[i].p.y = min_y + (max_y - min_y) * gl4dmSURand();
+            
+            // Réinitialiser les propriétés physiques
+            _mobiles[i].v.x = 0.0f;
+            _mobiles[i].v.y = 0.0f;
+            _mobiles[i].density = REST_DENSITY;
+            _mobiles[i].pressure = 0.0f;
+            _mobiles[i].force.x = 0.0f;
+            _mobiles[i].force.y = 0.0f;
+        }
+    } else {
+        // Initialiser les particules normalement si elles n'existent pas encore
+        mobile_init(3000);
+    }
+    //mobile_init(3000);
     // les rectangles
-    rect_init_list(11); // la liste de rectangles
+    rect_init_list(7); // la liste de rectangles
     // 0.99f droite -0.99f gauche
-    rect_add(0.7f, -0.50f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(0.4f, -0.55f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(0.1f, -0.6f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-0.2f, -0.65f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-0.5f, -0.7f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-0.8f, -0.75f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-1.1f, -0.8f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
-    rect_add(-1.4f, -0.85f, 0.0f, 0.4f, 0.3f, 0.0f, 0.2f);
+    rect_add(0.90f, 0.4f, 0.0f, 0.4f, 0.2f, 0.0f, 20* M_PI / 180.0f);
+    //rect_add(0.8f, -0.55f, 0.0f, 0.2f, 0.2f, 0.0f, 60* M_PI / 180.0f);
+    rect_add(0.2f, -0.7f, 0.0f, 01.0f, 0.3f, 0.0f, 10* M_PI / 180.0f);
+    rect_add(-0.2f, -0.1f-0.65f, 0.0f, 0.4f, 0.3f, 0.0f, 0.1f);
+    rect_add(-0.5f, -0.1f-0.7f, 0.0f, 0.4f, 0.3f, 0.0f, 0.1f);
+    rect_add(-0.8f, -0.1f-0.75f, 0.0f, 0.4f, 0.3f, 0.0f, 0.1f);
+    rect_add(-1.1f, -0.1f-0.8f, 0.0f, 0.4f, 0.3f, 0.0f, 0.1f);
+    rect_add(-1.4f, -0.1f-0.85f, 0.0f, 0.4f, 0.3f, 0.0f, 0.1f);
     // rect_add(0.0f, -0.90f, 0.0f, 0.9f, 0.5f, 0.0f, 0.3f);
     oval_init_list(1);                                                                     // la liste de poissons
-    oval_add(poission_position[0], poission_position[1], 0.0f, 0.10f, 0.10f, 0.0f, -0.2f); // Poisson 1
+    oval_add(poission_position[0], poission_position[1], 0.0f, 0.10f, 0.10f, 0.0f, -0.0f); // Poisson 1
 
     glGenVertexArrays(1, &particle_vao);
     glBindVertexArray(particle_vao);
@@ -857,7 +1190,7 @@ void init(void)
     glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
 
     // initiation avec une taille fixe
-    glBufferData(GL_ARRAY_BUFFER, 2000 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 3000 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
 
     // configuration des attributs (position, rayon, couleur)
     glEnableVertexAttribArray(0); // position (vec2)
@@ -869,6 +1202,51 @@ void init(void)
     glEnable(GL_PROGRAM_POINT_SIZE);
 
     glBindVertexArray(0); // clean
+
+
+GLfloat water_vertices[] = {
+    // 1. Triangle rectangle plus grand touchant la bordure gauche de l'écran et élevé de 10%
+    -1.0f, -0.6f,   // Point en bas à gauche (élevé de 10% de la hauteur de l'écran de -1.0f à -0.8f)
+     1.0f, -0.6f,   // Point en bas à droite (également élevé de 10%)
+     1.0f, -0.2f,   // Point en haut à droite (également élevé de 10%)
+        
+    // Rectangle qui couvre le bas de l'écran (100% largeur, 20% hauteur)
+    -1.0f, -1.0f,   // Bas gauche
+     1.0f, -1.0f,   // Bas droite
+     1.0f, -0.6f,  // Haut droite (augmenté de -0.8 à -0.65)
+        
+    -1.0f, -1.0f,   // Bas gauche  
+     1.0f, -0.6f,  // Haut droite (augmenté de -0.8 à -0.65)
+    -1.0f, -0.6f,  // Haut gauche (augmenté de -0.8 à -0.65)
+    // 2. Bande verticale fine à droite (rectangle inchangé)
+    0.9f, -0.6f,    // Bas gauche
+    1.0f, -0.6f,    // Bas droite 
+    1.0f,  0.4f,    // Haut droite
+    
+    0.9f, -0.6f,    // Bas gauche
+    1.0f,  0.4f,    // Haut droite
+    0.9f,  0.4f,    // Haut gauche
+    //bande horizontale en haut à droite (plus courte et plus basse)
+    0.85f, 0.4f,  // Bas gauche (réduit horizontalement: 0.85 au lieu de 0.8)
+    1.0f, 0.4f,  // Bas droite
+    1.0f, 0.6f,  // Haut droite
+    
+    0.85f, 0.4f,  // Bas gauche
+    1.0f, 0.6f,  // Haut droite
+    0.85f, 0.6f   // Haut gauche
+};
+    glGenVertexArrays(1, &_water_vao);
+    glBindVertexArray(_water_vao);
+
+    glGenBuffers(1, &_water_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, _water_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(water_vertices), water_vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void draw(void){
@@ -878,6 +1256,31 @@ void draw(void){
     /* effacer le buffer de couleur (image) et le buffer de profondeur d'OpenGL */
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    static int water_dore = 0; // 0: eau normale, 1: eau dorée
+    glUseProgram(_pId_water);
+    if (!(t0 < 83.0f)){
+        water_dore = 1; // Activer l'effet doré après 83 secondes
+    } else {
+        water_dore = 0; // Eau normale avant 83 secondes
+    }
+// Passer le temps pour animer l'eau
+glUniform1f(glGetUniformLocation(_pId_water, "time"), (float)t0);
+// Passer la résolution de l'écran
+glUniform2f(glGetUniformLocation(_pId_water, "resolution"), (float)1920, (float)1080);
+glUniform1i(glGetUniformLocation(_pId_water, "dore"), water_dore);
+
+
+// Activer le blending pour la transparence
+glEnable(GL_BLEND);
+glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+// Dessiner le rectangle d'eau
+glBindVertexArray(_water_vao);
+glDrawArrays(GL_TRIANGLES, 0, 24);
+glBindVertexArray(0);
+
+// Désactiver le blending
+glDisable(GL_BLEND);
     /* utiliser le programme GPU "_pId_phy" */
     glUseProgram(_pId_phy);
     mobile_simu();
@@ -910,15 +1313,21 @@ void draw(void){
     glDrawArrays(GL_POINTS, 0, _nb_mobiles);
     glBindVertexArray(0);
     rect_draw_all();
-    // pour faire deux scene une avec et une sans poisson
-    if (!(t0 < 50.0f))
+    //glUseProgram(_pId_phy_poisson);
+    // pour faire deux scene différentes
+    if (!(t0 < 83.0f))
     {
-        update_fish_positions();
+        update_fish_positions(dt*2);
+        oval_draw_all();
+    }else {
+        update_fish_positions_stagne(dt*5);
         oval_draw_all();
     }
-    /* n'utiliser aucun programme GPU (pas nécessaire) */
-    glUseProgram(0);
+
+glUseProgram(0);
 }
+
+vec3d_t spawn_point = { 1.0f, 0.8f, 0.0f };
 
 void mobile_init(int n)
 {
@@ -931,9 +1340,12 @@ void mobile_init(int n)
     float max_x = 0.9f; // Limite droite de la zone de spawn
     float min_y = 0.5f; // Limite basse de la zone de spawn
     float max_y = 0.9f; // Limite haute de la zone de spawn
+    double start_time = gl4dGetElapsedTime() / 1000.0;
+    for (int i = 0; i < n; i++){
+        _mobiles[i].p = spawn_point;
+        _mobiles[i].activation_time = start_time + i * 0.01; // délai progressif
+        _mobiles[i].is_active = false;
 
-    for (int i = 0; i < n; i++)
-    {
         // Position aléatoire dans la zone définie
         _mobiles[i].p.x = min_x + (max_x - min_x) * gl4dmSURand();
         _mobiles[i].p.y = min_y + (max_y - min_y) * gl4dmSURand();
@@ -971,6 +1383,7 @@ void mobile_simu(void){
     if (dt > 0.03)
         dt = 0.03; // Limiter le pas de temps à 30 ms
 
+
     // Calculer les forces SPH
     compute_sph_forces();
 
@@ -991,8 +1404,21 @@ void mobile_simu(void){
     //}
     float min_distance_squared = MIN_DISTANCE * MIN_DISTANCE;
 
-    for (int i = 0; i < _nb_mobiles; ++i)
-    {
+    for (int i = 0; i < _nb_mobiles; ++i){
+        
+
+    if (! _mobiles[i].is_active && t >= _mobiles[i].activation_time) {
+    _mobiles[i].is_active = true;
+    _mobiles[i].p = spawn_point; // Remettre la position exacte au moment de l’activation
+    }
+if (! _mobiles[i].is_active){
+        continue; // pas encore active
+    }
+        //si une balle touche le mur de gauche elle revient au spawnpoint
+        if (_mobiles[i].p.x <= -1.0f)
+        {
+            _mobiles[i].p = spawn_point;
+        }
         _mobiles[i].force.x *= dt_time_scale;
         _mobiles[i].force.y *= dt_time_scale;
 
@@ -1137,6 +1563,7 @@ void mobile_draw(void)
 
     for (int i = 0; i < _nb_mobiles; ++i)
     {
+        if (!_mobiles[i].is_active) continue;
         tmp[i * 7 + 0] = _mobiles[i].p.x;
         tmp[i * 7 + 1] = _mobiles[i].p.y;
         tmp[i * 7 + 2] = _mobiles[i].r;
