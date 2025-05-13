@@ -81,11 +81,11 @@ static void init(void)
 
     // les texte
     initText(&_textTexId1,
-             "Au coeur de la Chine, au sommet d’une cascade,\n"
-             "se trouve une porte appelée Longmen.\n"
-             "C’est ici qu’à chaque floraison des cerisiers, des centaines de carpes ,\n"
-             "tentent de remonter le courant pour la franchir et devenir des dragons.\n");
+             "Il y existe une porte,\n"
+             "que des carpes tentent de franchir,\n"
+             "pour devenir des dragons. \n");
     /*
+    "C’est ici qu’à chaque floraison des cerisiers, des centaines de carpes ,\n"
       initText(&_textTexId2,
         "Une carpe, se lança dans l’ascension du fleuve.\n"
         "Nuit et jour, elle lutta contre les remous et le courant,\n"
@@ -145,7 +145,7 @@ static void draw(void)
     gl4duLoadIdentityf();
 
     // Position les crédits au centre
-    gl4duScalef(0.90, 0.90, 1.0);
+    gl4duScalef(01.0, 0.50, 1.0);
     gl4duTranslatef(0.0, 0.10, -2.30);
 
     gl4duSendMatrices();
@@ -195,7 +195,7 @@ static void initText(GLuint *ptId, const char *text)
     // Essayer chaque police jusqu'à en trouver une qui fonctionne
     for (int i = 0; i < sizeof(fontPaths) / sizeof(fontPaths[0]); i++)
     {
-        font = TTF_OpenFont(fontPaths[i], 108);
+        font = TTF_OpenFont(fontPaths[i], 128);
         if (font)
         {
             fprintf(stderr, "Police trouvée: %s\n", fontPaths[i]);

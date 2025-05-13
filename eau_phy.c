@@ -14,7 +14,7 @@
 #include <stdbool.h>
 
 #define MAX_NEIGHBOURS 32
-#define HASH_SIZE 3000
+#define HASH_SIZE 2000
 #define CELL_SIZE 0.1f // taille des cellules pour la grille spatiale
 
 // pour la gravitée radiale
@@ -87,6 +87,7 @@ static void draw(void);
 static void mobile_init(int n);
 static void mobile_simu(void);
 static void mobile_draw(void);
+bool verify_initialization();
 
 /* on créé une variable pour stocker l'identifiant du programme GPU */
 GLuint _pId_phy = 0;
@@ -136,13 +137,139 @@ struct mobile_t
 /* tous les mobiles de ma scène */
 static mobile_t *_mobiles = NULL;
 static int _nb_mobiles = 0;
+static double _scene_start_time = 0.0;
+static float scene_time = 0.0f;
+bool a_deja_avance = false;
 //static double t0 = 0.0;
 void eau_scene(int state)
 {
+    static int init_attempts = 0;
+    const int MAX_INIT_ATTEMPTS = 3;
+    
     switch (state)
     {
     case GL4DH_INIT:
-        init();
+            init_attempts = 0;
+        do {
+            // Si ce n'est pas la première tentative, nettoyer d'abord
+            if (init_attempts > 0) {
+                printf("Initialization attempt %d failed. Retrying...\n", init_attempts);
+                // Free mobile particles
+        // Free mobile particles
+        if (_mobiles)
+        {
+            free(_mobiles);
+            _mobiles = NULL;
+            _nb_mobiles = 0;
+        }
+
+        // Free spatial grid structures
+        if (_grid_phy)
+        {
+            free(_grid_phy);
+            _grid_phy = NULL;
+        }
+        if (_cell_indices)
+        {
+            free(_cell_indices);
+            _cell_indices = NULL;
+        }
+        if (_particle_indices)
+        {
+            free(_particle_indices);
+            _particle_indices = NULL;
+        }
+
+        // Delete shader programs
+        if (_pId_phy)
+        {
+            glDeleteProgram(_pId_phy);
+            _pId_phy = 0;
+        }
+        if (_pId_phy_particules)
+        {
+            glDeleteProgram(_pId_phy_particules);
+            _pId_phy_particules = 0;
+        }
+        if (_pId_water)
+        {
+            glDeleteProgram(_pId_water);
+            _pId_water = 0;
+        }
+
+        // Delete OpenGL objects
+        if (_quad_phy)
+        {
+            gl4dgDelete(_quad_phy);
+            _quad_phy = 0;
+        }
+        if (particle_vao)
+        {
+            glDeleteVertexArrays(1, &particle_vao);
+            particle_vao = 0;
+        }
+        if (particle_vbo)
+        {
+            glDeleteBuffers(1, &particle_vbo);
+            particle_vbo = 0;
+        }
+        if (_water_vao)
+        {
+            glDeleteVertexArrays(1, &_water_vao);
+            _water_vao = 0;
+        }
+        if (_water_vbo)
+        {
+            glDeleteBuffers(1, &_water_vbo);
+            _water_vbo = 0;
+        }
+
+        // Free rectangles
+        if (_rects)
+        {
+            free(_rects);
+            _rects = NULL;
+            _nb_rects = 0;
+            _max_rects = 0;
+        }
+        
+        // Free ovals (fish)
+        if (_ovals)
+        {
+            free(_ovals);
+            _ovals = NULL;
+            _nb_poisson = 0;
+            _max_poisson = 0;
+        }
+        
+        // Reset other variables to default state
+        _g.x = 0.0f;
+        _g.y = 0.0f;
+        _g.z = 0.0f;
+        
+        //printf("Resources freed for re-initialization attempt %d\n", init_attempts);
+    }// Initialiser
+    a_deja_avance = false;
+            init();
+            _scene_start_time = gl4dGetElapsedTime() / 1000.0;
+            //printf("Scene started at time: %.2f seconds\n", _scene_start_time);//TODO enlever
+            
+            init_attempts++;
+            
+            // Vérifier si tout est correctement initialisé
+            if (verify_initialization()) {
+                printf("Initialization successful on attempt %d!\n", init_attempts);
+                break;
+            }
+            
+            // Si nous avons atteint le nombre maximum de tentatives, afficher un message d'erreur
+            if (init_attempts >= MAX_INIT_ATTEMPTS) {
+                fprintf(stderr, "ERROR: Failed to initialize after %d attempts. Continuing with partial initialization.\n", MAX_INIT_ATTEMPTS);
+                break;
+            }
+            
+        } while (init_attempts < MAX_INIT_ATTEMPTS);
+        
         return;
     case GL4DH_FREE:
     {
@@ -378,6 +505,7 @@ void rect_draw_all(void)
     free(angles);
 }
 
+
 // Appeler cette fonction dans mobile_simu après mise à jour des particules
 void rect_collide_all(mobile_t *mobiles, int nb, float e)
 {
@@ -455,11 +583,19 @@ static void collide_with_rotated_oval(mobile_t *m, const oval3d_t *o, float e)
 
 // fonction pour mettre à jour la position des poissons
 void update_fish_positions(float dt) {
-    static float time = 0.0f;
+    //static float scene_time = 0.0f;
     static int phase = 0; // 0: move right, 1: move up, 2: move right again
     static float initial_y_phase2 = 0.0f;
-
-    time += dt;
+    //printf("position du poisson de base: %f %f\n", poission_position[0], poission_position[1]);
+    //if (a_deja_avance == false){
+    //    //printf("position du poisson avant init: %f %f\n", poission_position[0], poission_position[1]);
+    //    poission_position[0] *= -1.0f;
+    //    poission_position[1] = -0.5f;
+    //    a_deja_avance = true;
+    //    //printf("position du poisson apres init: %f %f\n", poission_position[0], poission_position[1]);
+    //}
+    //printf("position du poisson courrante: %f %f\n", poission_position[0], poission_position[1]);
+    scene_time += dt;
 
     // Changement de phase
     if (phase == 0 && poission_position[0] >= 0.8f) {
@@ -472,14 +608,14 @@ void update_fish_positions(float dt) {
     // === Déplacements selon la phase ===
     if (phase == 0) {
         // Phase 0 : avancer vers la droite avec montée linéaire
-        poission_position[0] = -0.8f + time * 0.1f;
-        poission_position[1] = -0.5f + time * 0.02f; // Starting low and rising linearly
+        poission_position[0] = -0.8f + scene_time * 0.1f;
+        poission_position[1] = -0.5f + scene_time * 0.02f; // Starting low and rising linearly
         // Small vertical oscillation added to the linear upward movement
         //poission_position[1] += ((0.02f * sinf(time)) * dt )* 0.00f;
     }
     else if (phase == 1) {
         // Phase 1 : monter avec légère oscillation horizontale
-        poission_position[0] = 0.8f + 0.01f * sinf(time * 2.0f);
+        poission_position[0] = 0.8f + 0.01f * sinf(scene_time * 2.0f);
         poission_position[1] += dt * 0.15f; // montée linéaire
     }
     else if (phase == 2) {
@@ -508,11 +644,11 @@ void update_fish_positions(float dt) {
 }
 
 //fonction où le poisson avance et recule 
-void update_fish_positions_stagne(float dt){
-    static float time = 0.0f;
+void update_fish_positions_stagne(float dt) {
+    
     static int phase = 0; // 0: move right, 1: move up, 2: move down
     static float target_y = 0.0f;
-    time += dt;
+    scene_time += dt;
     // Update fish state based on position
     if (phase == 0 && poission_position[0] >= 0.8f) {
         phase = 1; // Switch to moving up
@@ -527,21 +663,21 @@ void update_fish_positions_stagne(float dt){
     // Update position based on current phase
     if (phase == 0) {
         // Phase 0: Move right with a slight oscillation in Y until x = 0.5
-        poission_position[0] = -0.8f + time * 0.05f;//+= 0.01f; // Move right
+        poission_position[0] = -0.8f + scene_time * 0.05f;//+= 0.01f; // Move right
         // Add oscillation in Y
         static float local_y_offset = 0.0f;
-        local_y_offset += 0.0085f * dt + (0.001f * sinf(time));
+        local_y_offset += 0.0085f * dt + (0.001f * sinf(scene_time));
         poission_position[1] = -0.5f + local_y_offset; // Move up and down
     }
     else if (phase == 1) {
         // Phase 1: Move up + oscillate in X
-        poission_position[0] = 0.8f + 0.01f * sinf(time * 2.0f); // Oscillate in X
+        poission_position[0] = 0.8f + 0.01f * sinf(scene_time * 2.0f); // Oscillate in X
         poission_position[1] += 0.08f * dt; // Move up slowly
     }
     else if (phase == 2) {
         // Phase 2: Move down quickly
         poission_position[1] -= 0.03f * dt; // Move down fast
-        poission_position[0] = 0.8f + 0.01f * sinf(time * 3.0f); // Slight oscillation
+        poission_position[0] = 0.8f + 0.01f * sinf(scene_time * 3.0f); // Slight oscillation
     }
     
     // Update fish orientation based on movement direction
@@ -562,70 +698,8 @@ void update_fish_positions_stagne(float dt){
     }
 }
 
-///test poisson
-GLuint _vao_fish = 0;
-GLuint _vbo_fish = 0;
-
-// Cette fonction initialise les VAO/VBO pour les poissons
-void init_fish_vao(void) {
-    glGenVertexArrays(1, &_vao_fish);
-    glGenBuffers(1, &_vbo_fish);
-}
-
-// Libérer les ressources
-void cleanup_fish_vao(void) {
-    if (_vao_fish) {
-        glDeleteVertexArrays(1, &_vao_fish);
-        _vao_fish = 0;
-    }
-    if (_vbo_fish) {
-        glDeleteBuffers(1, &_vbo_fish);
-        _vbo_fish = 0;
-    }
-}
 
 
-void oval_draw_all(void)
-{
-    GLfloat *oval_data = malloc(4 * _nb_poisson * sizeof *oval_data); // 4 pour x,y,w,h
-    assert(oval_data);
-// allocation séparée pour les angles
-    float *angles = malloc(_nb_poisson * sizeof(float));
-    assert(angles);
-    for (int i = 0; i < _nb_poisson; ++i)
-    {
-        oval_data[4 * i + 0] = _ovals[i].x;
-        oval_data[4 * i + 1] = _ovals[i].y;
-        oval_data[4 * i + 2] = _ovals[i].w;
-        oval_data[4 * i + 3] = _ovals[i].h;
-        angles[i] = _ovals[i].angle_x;
-    }
-    // Set up an attribute for angles if needed
-    glUseProgram(_pId_phy);
-
-    //angles[0] = M_PI / 4;
-    glUniform4fv(glGetUniformLocation(_pId_phy, "poisson"), _nb_poisson, oval_data);
-    glUniform1fv(glGetUniformLocation(_pId_phy, "poisson_angles"), _nb_poisson, angles);
-
-    glUniform1i(glGetUniformLocation(_pId_phy, "nb_poisson"), _nb_poisson);
-
-    // set la couleur en blanc
-    glUniform4f(glGetUniformLocation(_pId_phy, "poisson_color"), 1.0f, 1.0f, 1.0f, 1.0f);
-
-    for (int i = 0; i < _nb_mobiles; ++i)
-    {
-        for (int j = 0; j < _nb_poisson; ++j)
-        {
-            collide_with_rotated_oval(&_mobiles[i], &_ovals[j], e);
-        }
-    }
-
-    gl4dgDraw(_quad_phy);
-    glUseProgram(0);
-
-    free(oval_data);
-    free(angles);
-}
 
 void oval_collide_all(mobile_t *mobiles, int nb, float e)
 {
@@ -934,9 +1008,75 @@ void compute_sph_forces()
 }
 /*fin fonction de ouf*/
 
+// Ajouter cette fonction après init()
+
+bool verify_initialization() {
+    bool everything_ok = true;
+    
+    // Vérifier les shaders
+    if (!_pId_phy || !_pId_phy_particules || !_pId_water) {
+        printf("ERROR: One or more shaders failed to initialize!\n");
+        everything_ok = false;
+    }
+    
+    // Vérifier les buffers des particules
+    if (!particle_vao || !particle_vbo) {
+        printf("ERROR: Particle buffers not initialized correctly!\n");
+        everything_ok = false;
+    }
+    
+    // Vérifier les buffers de l'eau
+    if (!_water_vao || !_water_vbo) {
+        printf("ERROR: Water buffers not initialized correctly!\n");
+        everything_ok = false;
+    }
+    
+    // Vérifier l'allocation des mobiles
+    if (!_mobiles || _nb_mobiles <= 0) {
+        printf("ERROR: Mobile particles not initialized correctly!\n");
+        everything_ok = false;
+    }
+    
+    // Vérifier la grille spatiale
+    if (!_grid_phy || !_cell_indices || !_particle_indices) {
+        printf("ERROR: Spatial grid structures not initialized correctly!\n");
+        everything_ok = false;
+    }
+    
+    // Vérifier les rectangles et poissons
+    if (!_rects || _nb_rects <= 0) {
+        printf("ERROR: Rectangles not initialized correctly!\n");
+        everything_ok = false;
+    }
+    
+    if (!_ovals || _nb_poisson <= 0) {
+        printf("ERROR: Fish not initialized correctly!\n");
+        everything_ok = false;
+    }
+    
+    return everything_ok;
+}
+
 /* initialise des paramètres GL et GL4D */
 void init(void)
 {
+    // Initialiser les structures de la grille spatiale en premier
+    _grid_phy = (spatial_cell_t *)malloc(HASH_SIZE * sizeof(spatial_cell_t));
+    assert(_grid_phy);
+    
+    // Comme _nb_mobiles n'est pas encore défini, allouez une taille fixe pour l'instant
+    _cell_indices = (int *)malloc(2000 * sizeof(int)); // Taille initiale pour 2000 particules
+    assert(_cell_indices);
+    
+    _particle_indices = (int *)malloc(2000 * sizeof(int));
+    assert(_particle_indices);
+    
+    // Initialiser toutes les cellules
+    for (int i = 0; i < HASH_SIZE; i++) {
+        _grid_phy[i].start_index = -1;
+        _grid_phy[i].count = 0;
+    }
+    
     _quad_phy = gl4dgGenQuadf();
     /* set la couleur d'effacement OpenGL */
     TIME_SCALE = 10.0f;
@@ -1137,14 +1277,15 @@ imvs = "<imvs>identity.vs</imvs>\n"
     
     /* créer un programme GPU pour OpenGL (en GL4D) */
     _pId_phy_particules = gl4duCreateProgram("<vs>shaders/parti.vs", "<fs>shaders/parti.fs", NULL);
+    
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 // Réinitialiser le temps d'activation des particules
-    double current_time = gl4dGetElapsedTime() / 1000.0;
+    double current_time = _scene_start_time;
     
     // Réinitialiser les particules et les rendre immédiatement actives
     if (_mobiles) {
         for (int i = 0; i < _nb_mobiles; i++) {
-            _mobiles[i].is_active = true; // Forcer l'activation immédiate
+            _mobiles[i].is_active = false; // Forcer l'activation pas immédiate
             _mobiles[i].activation_time = current_time;
             
             // Repositionner à la zone de spawn
@@ -1165,9 +1306,9 @@ imvs = "<imvs>identity.vs</imvs>\n"
         }
     } else {
         // Initialiser les particules normalement si elles n'existent pas encore
-        mobile_init(3000);
+        mobile_init(2000);
     }
-    //mobile_init(3000);
+    //mobile_init(2000);
     // les rectangles
     rect_init_list(7); // la liste de rectangles
     // 0.99f droite -0.99f gauche
@@ -1190,7 +1331,7 @@ imvs = "<imvs>identity.vs</imvs>\n"
     glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
 
     // initiation avec une taille fixe
-    glBufferData(GL_ARRAY_BUFFER, 3000 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 2000 * sizeof(float) * 7, NULL, GL_DYNAMIC_DRAW);
 
     // configuration des attributs (position, rayon, couleur)
     glEnableVertexAttribArray(0); // position (vec2)
@@ -1247,16 +1388,150 @@ GLfloat water_vertices[] = {
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    printf("Initializing shader programs...\n");
+    if (_pId_phy) 
+        printf(" - Physics shader: OK (id: %u)\n", _pId_phy);
+    else
+        printf(" - Physics shader: FAILED\n");
+        
+    if (_pId_phy_particules) 
+        printf(" - Particle shader: OK (id: %u)\n", _pId_phy_particules);
+    else
+        printf(" - Particle shader: FAILED\n");
+        
+    if (_pId_water) 
+        printf(" - Water shader: OK (id: %u)\n", _pId_water);
+    else
+        printf(" - Water shader: FAILED\n");
+        
+    printf("Initializing OpenGL resources...\n");
+    if (_quad_phy)
+        printf(" - Quad: OK (id: %u)\n", _quad_phy);
+    else
+        printf(" - Quad: FAILED\n");
+        
+    if (particle_vbo && particle_vao)
+        printf(" - Particle buffers: OK (VAO: %u, VBO: %u)\n", particle_vao, particle_vbo);
+    else
+        printf(" - Particle buffers: %s%s\n", 
+               particle_vao ? "" : "VAO FAILED ", 
+               particle_vbo ? "" : "VBO FAILED");
+               
+    printf("Initializing spatial grid...\n");
+    if (_grid_phy && _cell_indices && _particle_indices)
+        printf(" - Spatial grid structures: OK\n");
+    else
+        printf(" - Spatial grid structures: %s%s%s\n",
+               _grid_phy ? "" : "GRID FAILED ",
+               _cell_indices ? "" : "CELL_INDICES FAILED ",
+               _particle_indices ? "" : "PARTICLE_INDICES FAILED");
+     
+    if (_water_vao && _water_vbo)
+        printf(" - Water buffers: OK (VAO: %u, VBO: %u)\n", _water_vao, _water_vbo);
+    else
+        printf(" - Water buffers: %s%s\n",
+               _water_vao ? "" : "VAO FAILED ",
+               _water_vbo ? "" : "VBO FAILED");
 }
 
 void draw(void){
+     // Vérifier que les éléments critiques sont initialisés avant de dessiner
+    if (!_pId_water || !_water_vao || !particle_vao || !_pId_phy_particules) {
+        printf("Critical rendering components missing, skipping frame!\n");
+        return;
+    }
     static double t0 = 0.0;
     double t = gl4dGetElapsedTime() / 1000.0, dt = (t - t0);
     t0 = t;
+    double scene_time = t - _scene_start_time; // Temps écoulé depuis le début de la scène
     /* effacer le buffer de couleur (image) et le buffer de profondeur d'OpenGL */
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    static int water_dore = 0; // 0: eau normale, 1: eau dorée
+
+    mobile_simu();
+
+    /* utiliser le programme GPU "_pId_phy" */
+    glUseProgram(_pId_phy);
+    
+    // Dessiner les rectangles
+    GLfloat *rect_data = malloc(4 * _nb_rects * sizeof *rect_data);
+    assert(rect_data);
+
+    for (int i = 0; i < _nb_rects; ++i) {
+        rect_data[4 * i + 0] = _rects[i].x;
+        rect_data[4 * i + 1] = _rects[i].y;
+        rect_data[4 * i + 2] = _rects[i].w;
+        rect_data[4 * i + 3] = _rects[i].h;
+    }
+
+    float *rect_angles = malloc(_nb_rects * sizeof(float));
+    assert(rect_angles);
+    for (int i = 0; i < _nb_rects; ++i) {
+        rect_angles[i] = _rects[i].angle_x;
+    }
+
+    glUniform1fv(glGetUniformLocation(_pId_phy, "rect_angles"), _nb_rects, rect_angles);
+    glUniform4fv(glGetUniformLocation(_pId_phy, "rectangles"), _nb_rects, rect_data);
+    glUniform1i(glGetUniformLocation(_pId_phy, "nb_rects"), _nb_rects);
+    glUniform4f(glGetUniformLocation(_pId_phy, "rect_color"), 0.6f, 0.6f, 0.6f, 1.0f);
+
+    // Dessiner les poissons (ovals)
+    GLfloat *oval_data = malloc(4 * _nb_poisson * sizeof *oval_data);
+    assert(oval_data);
+    float *oval_angles = malloc(_nb_poisson * sizeof(float));
+    assert(oval_angles);
+
+    for (int i = 0; i < _nb_poisson; ++i) {
+        oval_data[4 * i + 0] = _ovals[i].x;
+        oval_data[4 * i + 1] = _ovals[i].y;
+        oval_data[4 * i + 2] = _ovals[i].w;
+        oval_data[4 * i + 3] = _ovals[i].h;
+        oval_angles[i] = _ovals[i].angle_x;
+    }
+    if (!(t0 < 83.0f)){
+    //update_fish_positions_stagne(0.30f);
+    
+    update_fish_positions(0.05f);
+    } else {
+        //update_fish_positions_stagne(0.20f);
+    }
+    
+    // Update the oval position with the current fish position
+    if (_nb_poisson > 0) {
+        _ovals[0].x = poission_position[0];
+        _ovals[0].y = poission_position[1];
+        //printf("Fish position updated: x=%f, y=%f, angle=%f\n", 
+        //       poission_position[0], poission_position[1], _ovals[0].angle_x);
+    }
+    glUniform4fv(glGetUniformLocation(_pId_phy, "poisson"), _nb_poisson, oval_data);
+    glUniform1fv(glGetUniformLocation(_pId_phy, "poisson_angles"), _nb_poisson, oval_angles);
+    glUniform1i(glGetUniformLocation(_pId_phy, "nb_poisson"), _nb_poisson);
+    if (!(t0 < 83.0f)){
+    glUniform4f(glGetUniformLocation(_pId_phy, "poisson_color"), 1.0f, 1.0f, 1.0f, 1.0f);
+    } else {
+        glUniform4f(glGetUniformLocation(_pId_phy, "poisson_color"), 0.0f, 0.0f, 0.0f, 0.0f);
+    }    
+
+    // Dessiner les objets
+    gl4dgDraw(_quad_phy);
+
+    // Gestion des collisions
+    for (int i = 0; i < _nb_mobiles; ++i) {
+        for (int j = 0; j < _nb_rects; ++j) {
+            collide_with_rotated_rect(&_mobiles[i], &_rects[j], e);
+        }
+        for (int j = 0; j < _nb_poisson; ++j) {
+            collide_with_rotated_oval(&_mobiles[i], &_ovals[j], e);
+        }
+    }
+
+    // Libérer la mémoire
+    free(rect_data);
+    free(rect_angles);
+    free(oval_data);
+    free(oval_angles);
+    
+    int water_dore = 0; // 0: eau normale, 1: eau dorée
     glUseProgram(_pId_water);
     if (!(t0 < 83.0f)){
         water_dore = 1; // Activer l'effet doré après 83 secondes
@@ -1271,21 +1546,23 @@ glUniform1i(glGetUniformLocation(_pId_water, "dore"), water_dore);
 
 
 // Activer le blending pour la transparence
-glEnable(GL_BLEND);
+//glEnable(GL_BLEND);
 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 // Dessiner le rectangle d'eau
 glBindVertexArray(_water_vao);
+glDisable(GL_DEPTH_TEST);  // Désactiver le depth test pour l'eau
+
 glDrawArrays(GL_TRIANGLES, 0, 24);
+glDrawArrays(GL_TRIANGLES, 0, 24);
+//printf("Drawing water...\n");
 glBindVertexArray(0);
 
 // Désactiver le blending
-glDisable(GL_BLEND);
-    /* utiliser le programme GPU "_pId_phy" */
-    glUseProgram(_pId_phy);
-    mobile_simu();
-    mobile_draw();
+//glDisable(GL_BLEND);
     glUseProgram(_pId_phy_particules); // shader pour les particules
+    mobile_draw();
+    
     if (!(t0 < 83.0f))
     {
         // Sélectionner une balle aléatoire comme point de départ
@@ -1312,19 +1589,14 @@ glDisable(GL_BLEND);
     glBindVertexArray(particle_vao);
     glDrawArrays(GL_POINTS, 0, _nb_mobiles);
     glBindVertexArray(0);
-    rect_draw_all();
-    //glUseProgram(_pId_phy_poisson);
-    // pour faire deux scene différentes
-    if (!(t0 < 83.0f))
-    {
-        update_fish_positions(dt*2);
-        oval_draw_all();
-    }else {
-        update_fish_positions_stagne(dt*5);
-        oval_draw_all();
-    }
 
-glUseProgram(0);
+    
+
+    glUseProgram(0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
 }
 
 vec3d_t spawn_point = { 1.0f, 0.8f, 0.0f };
@@ -1340,9 +1612,16 @@ void mobile_init(int n)
     float max_x = 0.9f; // Limite droite de la zone de spawn
     float min_y = 0.5f; // Limite basse de la zone de spawn
     float max_y = 0.9f; // Limite haute de la zone de spawn
-    double start_time = gl4dGetElapsedTime() / 1000.0;
+    double start_time = gl4dGetElapsedTime() / 1000.0 - _scene_start_time; // Temps écoulé depuis le début de la scène
+    
     for (int i = 0; i < n; i++){
-        _mobiles[i].p = spawn_point;
+        // Make particles appear randomly across the top portion of the screen
+        _mobiles[i].activation_time = start_time + i * 0.01; // progressive delay
+        _mobiles[i].is_active = false;
+
+        // Randomize position across the entire width of the screen, but only in the top area
+        _mobiles[i].p.x = -0.9f + 1.8f * gl4dmSURand(); // Random x from -0.9 to 0.9
+        _mobiles[i].p.y = 0.7f + 0.3f * gl4dmSURand();  // Random y from 0.7 to 1.0
         _mobiles[i].activation_time = start_time + i * 0.01; // délai progressif
         _mobiles[i].is_active = false;
 
@@ -1400,16 +1679,20 @@ void mobile_simu(void){
     //else
     //{
         TIME_SCALE = 10.10f;
-        max_speed_squared = 2.0f;
+        max_speed_squared = 10.0f;
     //}
     float min_distance_squared = MIN_DISTANCE * MIN_DISTANCE;
+    double scene_time = t - _scene_start_time;
 
     for (int i = 0; i < _nb_mobiles; ++i){
         
 
-    if (! _mobiles[i].is_active && t >= _mobiles[i].activation_time) {
+    if (! _mobiles[i].is_active && scene_time >= _mobiles[i].activation_time) {
     _mobiles[i].is_active = true;
-    _mobiles[i].p = spawn_point; // Remettre la position exacte au moment de l’activation
+        // Randomize position across the entire width of the screen, but only in the top area
+        _mobiles[i].p.x = -0.9f + 1.8f * gl4dmSURand(); // Random x from -0.9 to 0.9
+        _mobiles[i].p.y = 0.7f + 0.3f * gl4dmSURand();  // Random y from 0.7 to 1.0
+    //printf("remise au point de depart");
     }
 if (! _mobiles[i].is_active){
         continue; // pas encore active
@@ -1537,7 +1820,28 @@ if (! _mobiles[i].is_active){
         oval_collide_all(_mobiles, _nb_mobiles, e);
     }
 }
+void mobile_draw(void)
+{
+    GLfloat *tmp = malloc(sizeof(float) * 7 * _nb_mobiles);
+    assert(tmp);
 
+    for (int i = 0; i < _nb_mobiles; ++i)
+    {
+        if (!_mobiles[i].is_active) continue;
+        //        _mobiles[i].is_active = true;  // FORCER l'activation
+
+        tmp[i * 7 + 0] = _mobiles[i].p.x;
+        tmp[i * 7 + 1] = _mobiles[i].p.y;
+        tmp[i * 7 + 2] = _mobiles[i].r;
+        tmp[i * 7 + 3] = _mobiles[i].color[0];
+        tmp[i * 7 + 4] = _mobiles[i].color[1];
+        tmp[i * 7 + 5] = _mobiles[i].color[2];
+        tmp[i * 7 + 6] = _mobiles[i].color[3];
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float) * 7 * _nb_mobiles, tmp);
+    free(tmp);
+}
 // void mobile_draw(void){
 //	GLfloat *tmp = malloc(4 * _nb_mobiles * sizeof *tmp);
 //	assert(tmp);
@@ -1556,23 +1860,3 @@ if (! _mobiles[i].is_active){
 //	gl4dgDraw(_quad_phy);
 //	free(tmp);
 // }
-void mobile_draw(void)
-{
-    GLfloat *tmp = malloc(sizeof(float) * 7 * _nb_mobiles);
-    assert(tmp);
-
-    for (int i = 0; i < _nb_mobiles; ++i)
-    {
-        if (!_mobiles[i].is_active) continue;
-        tmp[i * 7 + 0] = _mobiles[i].p.x;
-        tmp[i * 7 + 1] = _mobiles[i].p.y;
-        tmp[i * 7 + 2] = _mobiles[i].r;
-        tmp[i * 7 + 3] = _mobiles[i].color[0];
-        tmp[i * 7 + 4] = _mobiles[i].color[1];
-        tmp[i * 7 + 5] = _mobiles[i].color[2];
-        tmp[i * 7 + 6] = _mobiles[i].color[3];
-    }
-    glBindBuffer(GL_ARRAY_BUFFER, particle_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float) * 7 * _nb_mobiles, tmp);
-    free(tmp);
-}
